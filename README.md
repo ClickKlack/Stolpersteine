@@ -31,7 +31,8 @@ cp config.example.php config.php
 mysql -u root -p stolpersteine < db/schema.sql
 
 # 4. Entwicklungsserver starten
-php -S localhost:8080 -t public/
+cd ..
+./dev.sh
 ```
 
 ---
