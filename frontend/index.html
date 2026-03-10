@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stolpersteine Verwaltung</title>
+    <link rel="preconnect" href="https://fonts.bunny.net">
+    <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<!-- =====================================================================
+     SCRIPTS: config → api → Seiten → app → Alpine (immer zuletzt)
+     ===================================================================== -->
+<script src="js/config.js"></script>
+<script src="js/icons.js"></script>
+<script src="js/api.js"></script>
+<script src="js/pages/login.js"></script>
+<script src="js/pages/dashboard.js"></script>
+<script src="js/pages/personen.js"></script>
+<script src="js/pages/verlegeorte.js"></script>
+<script src="js/app.js"></script>
+
+<!-- =====================================================================
+     APP-ROOT
+     ===================================================================== -->
+<div x-data="app">
+
+    <!-- Initialisierung läuft noch -->
+    <template x-if="!auth.ready">
+        <div class="login-wrapper">
+            <p aria-busy="true">Wird geladen …</p>
+        </div>
+    </template>
+
+    <!-- ----------------------------------------------------------------
+         LOGIN-SEITE
+         ---------------------------------------------------------------- -->
+    <template x-if="auth.ready && !auth.user">
+        <div class="login-wrapper" x-data="loginPage">
+            <article class="login-card">
+                <h1>Stolpersteine</h1>
+                <p class="subtitle">Verwaltungssystem Magdeburg</p>
+
+                <form @submit.prevent="submit">
+                    <label>
+                        Benutzername
+                        <input
+                            type="text"
+                            name="benutzername"
+                            autocomplete="username"
+                            x-model="benutzername"
+                            :disabled="loading"
+                            required
+                            autofocus
+                        >
+                    </label>
+
+                    <label>
+                        Passwort
+                        <input
+                            type="password"
+                            name="passwort"
+                            autocomplete="current-password"
+                            x-model="passwort"
+                            :disabled="loading"
+                            required
+                        >
+                    </label>
+
+                    <template x-if="error">
+                        <p style="color: var(--pico-del-color);" x-text="error"></p>
+                    </template>
+
+                    <button type="submit" :aria-busy="loading" :disabled="loading">
+                        Anmelden
+                    </button>
+                </form>
+            </article>
+        </div>
+    </template>
+
+    <!-- ----------------------------------------------------------------
+         HAUPT-APP (eingeloggt)
+         ---------------------------------------------------------------- -->
+    <template x-if="auth.ready && auth.user">
+        <div>
+
+            <!-- Navigation -->
+            <header class="container-fluid">
+                <nav>
+                    <a class="nav-brand" href="#dashboard"
+                       x-text="config.stadt_name ? 'Stolpersteine (' + config.stadt_name + ')' : 'Stolpersteine'">
+                    </a>
+
+                    <ul class="nav-links">
+                        <li>
+                            <a href="#dashboard"
+                               :class="{ active: router.is('dashboard') }">
+                                Dashboard
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#personen"
+                               :class="{ active: router.is('personen') }">
+                                Personen
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#stolpersteine"
+                               :class="{ active: router.is('stolpersteine') }">
+                                Stolpersteine
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#verlegeorte"
+                               :class="{ active: router.is('verlegeorte') }">
+                                Verlegeorte
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#dokumente"
+                               :class="{ active: router.is('dokumente') }">
+                                Dokumente
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#suche"
+                               :class="{ active: router.is('suche') }">
+                                Suche
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#import"
+                               :class="{ active: router.is('import') }">
+                                Import
+                            </a>
+                        </li>
+                        <li x-show="auth.isAdmin">
+                            <a href="#benutzerverwaltung"
+                               :class="{ active: router.is('benutzerverwaltung') }">
+                                Benutzer
+                            </a>
+                        </li>
+                    </ul>
+
+                    <ul style="list-style:none; margin:0; padding:0;">
+                        <li style="display:flex; align-items:center; gap:0.5rem;">
+                            <a href="#profil"
+                               :class="{ active: router.is('profil') }"
+                               style="font-size:0.9rem;"
+                               x-text="auth.user.benutzername">
+                            </a>
+                            <a href="#" role="button" class="outline" style="font-size:0.85rem; padding: 0.3rem 0.7rem;"
+                               @click.prevent="auth.logout()">
+                                Abmelden
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </header>
+
+            <!-- Seiteninhalt -->
+            <main class="container">
+
+                <!-- Dashboard -->
+                <template x-if="router.is('dashboard')">
+                    <div x-data="dashboardPage" x-init="init()">
+                        <h2>Dashboard</h2>
+
+                        <div x-show="loading" class="loading-spinner">
+                            <span aria-busy="true"></span> Lade Statistiken …
+                        </div>
+
+                        <template x-if="!loading && stats">
+                            <div class="stat-grid">
+                                <div class="stat-card">
+                                    <div class="stat-value" x-text="stats.personen"></div>
+                                    <div class="stat-label">Personen</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-value" x-text="stats.steine"></div>
+                                    <div class="stat-label">Stolpersteine</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-value" x-text="stats.orte"></div>
+                                    <div class="stat-label">Verlegeorte</div>
+                                </div>
+                            </div>
+                        </template>
+
+                        <template x-if="!loading && error">
+                            <p style="color: var(--pico-del-color);" x-text="error"></p>
+                        </template>
+
+                        <p style="color: var(--pico-muted-color); font-size: 0.9rem;">
+                            Angemeldet als
+                            <strong x-text="auth.user.benutzername"></strong>
+                            (<span x-text="auth.user.rolle"></span>)
+                        </p>
+                    </div>
+                </template>
+
+                <!-- Personen -->
+                <template x-if="router.is('personen')">
+                    <div x-data="personenPage" x-init="init()">
+
+                        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.5rem; margin-bottom:1rem;">
+                            <h2 style="margin:0;">Personen</h2>
+                            <button @click="openCreate()">+ Neue Person</button>
+                        </div>
+
+                        <!-- Filter (Live-Suche) -->
+                        <div class="filter-bar">
+                            <label class="filter-field">
+                                <span>Name</span>
+                                <input type="text" x-model="filter.name"
+                                       @input.debounce.300ms="load()"
+                                       placeholder="Vor-, Nach- oder Geburtsname …">
+                            </label>
+                            <button type="button" class="outline" @click="resetFilter()"
+                                    style="align-self:flex-end;">
+                                Zurücksetzen
+                            </button>
+                        </div>
+
+                        <!-- Fehlermeldung -->
+                        <template x-if="error">
+                            <p style="color:var(--pico-del-color);" x-text="error"></p>
+                        </template>
+
+                        <!-- Ladeindikator -->
+                        <div x-show="loading" class="loading-spinner">
+                            <span aria-busy="true"></span> Lade …
+                        </div>
+
+                        <!-- Tabelle -->
+                        <template x-if="!loading">
+                            <div>
+                                <template x-if="personen.length === 0">
+                                    <p style="color:var(--pico-muted-color);">Keine Personen gefunden.</p>
+                                </template>
+                                <template x-if="personen.length > 0">
+                                    <figure style="overflow-x:auto;">
+                                        <table>
+                                            <thead>
+                                                <tr>
+                                                    <th>Nachname</th>
+                                                    <th>Vorname</th>
+                                                    <th>Geburtsname</th>
+                                                    <th>Geboren</th>
+                                                    <th>Gestorben</th>
+                                                    <th style="width:1%;">Aktionen</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <template x-for="p in personen" :key="p.id">
+                                                    <tr>
+                                                        <td x-text="p.nachname"></td>
+                                                        <td x-text="p.vorname || '–'"></td>
+                                                        <td x-text="p.geburtsname || '–'"></td>
+                                                        <td x-text="formatDate(p.geburtsdatum, p.geburtsdatum_genauigkeit)"></td>
+                                                        <td x-text="formatDate(p.sterbedatum, p.sterbedatum_genauigkeit)"></td>
+                                                        <td style="white-space:nowrap; text-align:right;">
+                                                            <button class="btn-icon btn-wikidata" x-show="p.wikidata_id_person"
+                                                                    @click="window.open('https://www.wikidata.org/wiki/' + p.wikidata_id_person, '_blank')"
+                                                                    title="Wikidata-Seite öffnen" aria-label="Wikidata öffnen">
+                                                                <span x-html="ICONS.wikidata"></span>
+                                                            </button>
+                                                            <button class="btn-icon" @click="openEdit(p)" title="Bearbeiten" aria-label="Bearbeiten">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 20 20" fill="currentColor">
+                                                                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
+                                                                </svg>
+                                                            </button>
+                                                            <button class="btn-icon btn-delete" x-show="auth.isAdmin" @click="openDelete(p)" title="Löschen" aria-label="Löschen">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 20 20" fill="currentColor">
+                                                                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                                                                </svg>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                </template>
+                                            </tbody>
+                                        </table>
+                                    </figure>
+                                </template>
+                            </div>
+                        </template>
+
+                        <!-- Modal: Anlegen / Bearbeiten -->
+                        <dialog :open="modalOpen" @keydown.escape.window="if(modalOpen) closeModal()">
+                            <article>
+                                <header>
+                                    <h3 x-text="modalMode === 'create' ? 'Neue Person' : 'Person bearbeiten'"></h3>
+                                </header>
+
+                                <form @submit.prevent="save()">
+                                    <div class="grid">
+                                        <label>
+                                            Nachname *
+                                            <input id="p-nachname" type="text" x-model="form.nachname" required :disabled="saving">
+                                        </label>
+                                        <label>
+                                            Vorname
+                                            <input type="text" x-model="form.vorname" :disabled="saving">
+                                        </label>
+                                    </div>
+                                    <div class="grid">
+                                        <label>
+                                            Geburtsname
+                                            <input type="text" x-model="form.geburtsname" :disabled="saving">
+                                        </label>
+                                        <div>
+                                            <span style="font-size:0.875rem;">Wikidata-ID</span>
+                                            <div style="display:flex; gap:0.4rem; align-items:center; margin-top:0.35rem;">
+                                                <input type="text" x-model="form.wikidata_id_person" placeholder="Q12345" :disabled="saving" style="margin:0; flex:1;">
+                                                <button type="button" class="btn-icon btn-wikidata"
+                                                        :disabled="!form.wikidata_id_person"
+                                                        @click="window.open('https://www.wikidata.org/wiki/' + form.wikidata_id_person, '_blank')"
+                                                        title="Wikidata-Seite öffnen" aria-label="Wikidata öffnen">
+                                                    <span x-html="ICONS.wikidata"></span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <!-- Geburtsdatum -->
+                                    <fieldset style="border:1px solid var(--pico-table-border-color); border-radius:var(--pico-border-radius); padding:0.75rem; margin-bottom:var(--pico-spacing);">
+                                        <legend style="font-size:0.85rem; padding:0 0.4rem; color:var(--pico-muted-color);">Geburtsdatum</legend>
+                                        <div class="grid" style="align-items:end;">
+                                            <label style="margin:0;">
+                                                Genauigkeit
+                                                <select x-model="form.geburtsdatum_genauigkeit" :disabled="saving">
+                                                    <option value="">Unbekannt</option>
+                                                    <option value="tag">Genaues Datum</option>
+                                                    <option value="monat">Nur Monat + Jahr</option>
+                                                    <option value="jahr">Nur Jahr</option>
+                                                </select>
+                                            </label>
+                                            <template x-if="!form.geburtsdatum_genauigkeit || form.geburtsdatum_genauigkeit === 'tag'">
+                                                <label style="margin:0;">
+                                                    Datum
+                                                    <input type="date" x-model="form.geburtsdatum_voll" :disabled="saving">
+                                                </label>
+                                            </template>
+                                            <template x-if="form.geburtsdatum_genauigkeit === 'monat'">
+                                                <div class="grid" style="margin:0;">
+                                                    <label style="margin:0;">
+                                                        Jahr
+                                                        <input type="number" x-model="form.geburtsdatum_jahr" placeholder="1900" min="1" max="2100" :disabled="saving">
+                                                    </label>
+                                                    <label style="margin:0;">
+                                                        Monat
+                                                        <select x-model="form.geburtsdatum_monat" :disabled="saving">
+                                                            <option value="01">Januar</option><option value="02">Februar</option>
+                                                            <option value="03">März</option><option value="04">April</option>
+                                                            <option value="05">Mai</option><option value="06">Juni</option>
+                                                            <option value="07">Juli</option><option value="08">August</option>
+                                                            <option value="09">September</option><option value="10">Oktober</option>
+                                                            <option value="11">November</option><option value="12">Dezember</option>
+                                                        </select>
+                                                    </label>
+                                                </div>
+                                            </template>
+                                            <template x-if="form.geburtsdatum_genauigkeit === 'jahr'">
+                                                <label style="margin:0;">
+                                                    Jahr
+                                                    <input type="number" x-model="form.geburtsdatum_jahr" placeholder="1900" min="1" max="2100" :disabled="saving">
+                                                </label>
+                                            </template>
+                                        </div>
+                                    </fieldset>
+
+                                    <!-- Sterbedatum -->
+                                    <fieldset style="border:1px solid var(--pico-table-border-color); border-radius:var(--pico-border-radius); padding:0.75rem; margin-bottom:var(--pico-spacing);">
+                                        <legend style="font-size:0.85rem; padding:0 0.4rem; color:var(--pico-muted-color);">Sterbedatum</legend>
+                                        <div class="grid" style="align-items:end;">
+                                            <label style="margin:0;">
+                                                Genauigkeit
+                                                <select x-model="form.sterbedatum_genauigkeit" :disabled="saving">
+                                                    <option value="">Unbekannt</option>
+                                                    <option value="tag">Genaues Datum</option>
+                                                    <option value="monat">Nur Monat + Jahr</option>
+                                                    <option value="jahr">Nur Jahr</option>
+                                                </select>
+                                            </label>
+                                            <template x-if="!form.sterbedatum_genauigkeit || form.sterbedatum_genauigkeit === 'tag'">
+                                                <label style="margin:0;">
+                                                    Datum
+                                                    <input type="date" x-model="form.sterbedatum_voll" :disabled="saving">
+                                                </label>
+                                            </template>
+                                            <template x-if="form.sterbedatum_genauigkeit === 'monat'">
+                                                <div class="grid" style="margin:0;">
+                                                    <label style="margin:0;">
+                                                        Jahr
+                                                        <input type="number" x-model="form.sterbedatum_jahr" placeholder="1900" min="1" max="2100" :disabled="saving">
+                                                    </label>
+                                                    <label style="margin:0;">
+                                                        Monat
+                                                        <select x-model="form.sterbedatum_monat" :disabled="saving">
+                                                            <option value="01">Januar</option><option value="02">Februar</option>
+                                                            <option value="03">März</option><option value="04">April</option>
+                                                            <option value="05">Mai</option><option value="06">Juni</option>
+                                                            <option value="07">Juli</option><option value="08">August</option>
+                                                            <option value="09">September</option><option value="10">Oktober</option>
+                                                            <option value="11">November</option><option value="12">Dezember</option>
+                                                        </select>
+                                                    </label>
+                                                </div>
+                                            </template>
+                                            <template x-if="form.sterbedatum_genauigkeit === 'jahr'">
+                                                <label style="margin:0;">
+                                                    Jahr
+                                                    <input type="number" x-model="form.sterbedatum_jahr" placeholder="1900" min="1" max="2100" :disabled="saving">
+                                                </label>
+                                            </template>
+                                        </div>
+                                    </fieldset>
+                                    <label>
+                                        Kurzbiografie
+                                        <textarea x-model="form.biografie_kurz" rows="4" :disabled="saving"></textarea>
+                                    </label>
+
+                                    <template x-if="formError">
+                                        <p style="color:var(--pico-del-color);" x-text="formError"></p>
+                                    </template>
+
+                                    <footer style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                                        <button type="button" class="outline" @click="closeModal()" :disabled="saving">Abbrechen</button>
+                                        <button type="submit" :aria-busy="saving" :disabled="saving">Speichern</button>
+                                    </footer>
+                                </form>
+                            </article>
+                        </dialog>
+
+                        <!-- Modal: Löschen bestätigen -->
+                        <dialog :open="deleteConfirmOpen" @keydown.escape.window="if(deleteConfirmOpen) closeDelete()">
+                            <article>
+                                <header><h3>Person löschen</h3></header>
+                                <p>
+                                    Soll <strong x-text="deletePersonName"></strong> wirklich gelöscht werden?<br>
+                                    <small style="color:var(--pico-muted-color);">Verknüpfte Stolpersteine müssen vorher entfernt werden.</small>
+                                </p>
+                                <footer style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                                    <button class="outline" @click="closeDelete()" :disabled="deleting">Abbrechen</button>
+                                    <button style="background:var(--pico-del-color); border-color:var(--pico-del-color);"
+                                            @click="doDelete()" :aria-busy="deleting" :disabled="deleting">
+                                        Löschen
+                                    </button>
+                                </footer>
+                            </article>
+                        </dialog>
+
+                    </div>
+                </template>
+
+                <!-- Stolpersteine (Platzhalter) -->
+                <template x-if="router.is('stolpersteine')">
+                    <div>
+                        <div class="page-placeholder">
+                            <h2>Stolpersteine</h2>
+                            <p>Diese Seite wird in der nächsten Phase implementiert.</p>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Verlegeorte -->
+                <template x-if="router.is('verlegeorte')">
+                    <div x-data="verlegeortePage" x-init="init()">
+
+                        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.5rem; margin-bottom:1rem;">
+                            <h2 style="margin:0;">Verlegeorte</h2>
+                            <button @click="openCreate()">+ Neuer Verlegeort</button>
+                        </div>
+
+                        <!-- Filter (Live-Suche) -->
+                        <div class="filter-bar">
+                            <label class="filter-field">
+                                <span>Straße</span>
+                                <input type="text" x-model="filter.adresse"
+                                       @input.debounce.300ms="load()"
+                                       placeholder="Straße suchen …">
+                            </label>
+                            <label class="filter-field">
+                                <span>Stadtteil</span>
+                                <input type="text" x-model="filter.stadtteil"
+                                       @input.debounce.300ms="load()"
+                                       placeholder="Stadtteil suchen …">
+                            </label>
+                            <button type="button" class="outline" @click="resetFilter()"
+                                    style="align-self:flex-end;">
+                                Zurücksetzen
+                            </button>
+                        </div>
+
+                        <!-- Fehlermeldung -->
+                        <template x-if="error">
+                            <p style="color:var(--pico-del-color);" x-text="error"></p>
+                        </template>
+
+                        <!-- Ladeindikator -->
+                        <div x-show="loading" class="loading-spinner">
+                            <span aria-busy="true"></span> Lade …
+                        </div>
+
+                        <!-- Tabelle -->
+                        <template x-if="!loading">
+                            <div>
+                                <template x-if="orte.length === 0">
+                                    <p style="color:var(--pico-muted-color);">Keine Verlegeorte gefunden.</p>
+                                </template>
+                                <template x-if="orte.length > 0">
+                                    <figure style="overflow-x:auto;">
+                                        <table>
+                                            <thead>
+                                                <tr>
+                                                    <th>Adresse</th>
+                                                    <th>PLZ</th>
+                                                    <th>Stadt</th>
+                                                    <th>Stadtteil</th>
+                                                    <th>Koordinaten</th>
+                                                    <th style="width:1%;">Aktionen</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <template x-for="ort in orte" :key="ort.id">
+                                                    <tr>
+                                                        <td>
+                                                            <span x-text="adresseAnzeige(ort)"></span>
+                                                            <button class="btn-icon btn-wikidata" x-show="ort.wikidata_id_strasse"
+                                                                    @click="window.open('https://www.wikidata.org/wiki/' + ort.wikidata_id_strasse, '_blank')"
+                                                                    title="Wikidata Straße" aria-label="Wikidata Straße öffnen">
+                                                                <span x-html="ICONS.wikidata"></span>
+                                                            </button>
+                                                        </td>
+                                                        <td x-text="ort.plz_aktuell || '–'"></td>
+                                                        <td>
+                                                            <span x-text="ort.stadt || '–'"></span>
+                                                            <button class="btn-icon btn-wikidata" x-show="ort.wikidata_id_ort"
+                                                                    @click="window.open('https://www.wikidata.org/wiki/' + ort.wikidata_id_ort, '_blank')"
+                                                                    title="Wikidata Ort" aria-label="Wikidata Ort öffnen">
+                                                                <span x-html="ICONS.wikidata"></span>
+                                                            </button>
+                                                        </td>
+                                                        <td>
+                                                            <span x-text="ort.stadtteil || '–'"></span>
+                                                            <button class="btn-icon btn-wikidata" x-show="ort.wikidata_id_stadtteil"
+                                                                    @click="window.open('https://www.wikidata.org/wiki/' + ort.wikidata_id_stadtteil, '_blank')"
+                                                                    title="Wikidata Stadtteil" aria-label="Wikidata Stadtteil öffnen">
+                                                                <span x-html="ICONS.wikidata"></span>
+                                                            </button>
+                                                        </td>
+                                                        <td x-text="koordinatenAnzeige(ort)" style="font-size:0.8rem; color:var(--pico-muted-color);"></td>
+                                                        <td style="white-space:nowrap; text-align:right;">
+                                                            <button class="btn-icon" @click="openEdit(ort)" title="Bearbeiten" aria-label="Bearbeiten">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 20 20" fill="currentColor">
+                                                                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
+                                                                </svg>
+                                                            </button>
+                                                            <button class="btn-icon btn-delete" x-show="auth.isAdmin" @click="openDelete(ort)" title="Löschen" aria-label="Löschen">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 20 20" fill="currentColor">
+                                                                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                                                                </svg>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                </template>
+                                            </tbody>
+                                        </table>
+                                    </figure>
+                                </template>
+                            </div>
+                        </template>
+
+                        <!-- Modal: Anlegen / Bearbeiten -->
+                        <dialog :open="modalOpen" @keydown.escape.window="if(modalOpen) closeModal()">
+                            <article>
+                                <header>
+                                    <h3 x-text="modalMode === 'create' ? 'Neuer Verlegeort' : 'Verlegeort bearbeiten'"></h3>
+                                </header>
+
+                                <form @submit.prevent="save()">
+
+                                    <!-- Adresse -->
+                                    <fieldset style="border:1px solid var(--pico-table-border-color); border-radius:var(--pico-border-radius); padding:0.75rem; margin-bottom:var(--pico-spacing);">
+                                        <legend style="font-size:0.85rem; padding:0 0.4rem; color:var(--pico-muted-color);">Adresse</legend>
+
+                                        <!-- Gewählte Adresse anzeigen -->
+                                        <template x-if="adresse">
+                                            <div>
+                                                <div class="adresse-block">
+                                                    <span x-text="adresse.strasse_name"></span>
+                                                    <button type="button" class="btn-icon btn-wikidata" x-show="adresse.wikidata_id_strasse"
+                                                            @click="window.open('https://www.wikidata.org/wiki/' + adresse.wikidata_id_strasse, '_blank')"
+                                                            title="Wikidata Straße" aria-label="Wikidata Straße öffnen">
+                                                        <span x-html="ICONS.wikidata"></span>
+                                                    </button>
+                                                    <template x-if="adresse.stadtteil_name || adresse.plz">
+                                                        <span style="color:var(--pico-muted-color);">·</span>
+                                                    </template>
+                                                    <span x-show="adresse.plz" x-text="adresse.plz"></span>
+                                                    <span x-show="adresse.stadtteil_name" x-text="adresse.stadtteil_name"></span>
+                                                    <button type="button" class="btn-icon btn-wikidata" x-show="adresse.wikidata_id_stadtteil"
+                                                            @click="window.open('https://www.wikidata.org/wiki/' + adresse.wikidata_id_stadtteil, '_blank')"
+                                                            title="Wikidata Stadtteil" aria-label="Wikidata Stadtteil öffnen">
+                                                        <span x-html="ICONS.wikidata"></span>
+                                                    </button>
+                                                    <template x-if="adresse.stadt_name">
+                                                        <span style="color:var(--pico-muted-color);">·</span>
+                                                    </template>
+                                                    <span x-show="adresse.stadt_name" x-text="adresse.stadt_name"></span>
+                                                    <button type="button" class="btn-icon btn-wikidata" x-show="adresse.wikidata_id_ort"
+                                                            @click="window.open('https://www.wikidata.org/wiki/' + adresse.wikidata_id_ort, '_blank')"
+                                                            title="Wikidata Ort" aria-label="Wikidata Ort öffnen">
+                                                        <span x-html="ICONS.wikidata"></span>
+                                                    </button>
+                                                    <button type="button" class="outline" style="margin-left:auto; padding:0.2rem 0.6rem; font-size:0.8rem;"
+                                                            @click="adresseZuruecksetzen()" :disabled="saving">
+                                                        Ändern
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </template>
+
+                                        <!-- Lookup-Widget (wenn noch keine Adresse gewählt) -->
+                                        <template x-if="!adresse">
+                                            <div>
+                                                <div class="lookup-wrapper">
+                                                    <input id="v-lookup" type="text"
+                                                           x-model="lookup.query"
+                                                           @input.debounce.300ms="strasseSuchen()"
+                                                           @focus="if(lookup.ergebnisse.length) lookup.offen = true"
+                                                           @keydown.escape="lookup.offen = false"
+                                                           placeholder="Straße suchen …"
+                                                           :disabled="saving"
+                                                           autocomplete="off"
+                                                           style="margin-bottom:0;">
+
+                                                    <div class="lookup-dropdown" x-show="lookup.offen" @click.outside="lookup.offen = false">
+                                                        <template x-if="lookup.loading">
+                                                            <div class="lookup-item lookup-loading">Suche …</div>
+                                                        </template>
+                                                        <template x-if="!lookup.loading">
+                                                            <div>
+                                                                <template x-for="strasse in lookup.ergebnisse" :key="strasse.id">
+                                                                    <div>
+                                                                        <!-- Straße ohne Lokationen: Inline-Formular mit vorausgefüllter Straße öffnen -->
+                                                                        <template x-if="strasse.lokationen.length === 0">
+                                                                            <div class="lookup-item"
+                                                                                 @click="neueAdresse = { aktiv: true, strasse_name: strasse.name, wikidata_id_strasse: strasse.wikidata_id || '', stadtteil_name: '', wikidata_id_stadtteil: '', plz: '', stadt_name: strasse.stadt_name, wikidata_id_ort: strasse.wikidata_id_ort || '', saving: false, error: null }; lookup.offen = false;">
+                                                                                <span x-text="strasse.name"></span>
+                                                                                <small x-text="strasse.stadt_name"></small>
+                                                                            </div>
+                                                                        </template>
+                                                                        <!-- Straße mit einer Lokation: direkt auswählen -->
+                                                                        <template x-if="strasse.lokationen.length === 1">
+                                                                            <div class="lookup-item" @click="lokationWaehlen(strasse, strasse.lokationen[0])">
+                                                                                <span x-text="strasse.name"></span>
+                                                                                <small x-text="[strasse.lokationen[0].plz, strasse.lokationen[0].stadtteil_name].filter(Boolean).join(', ') || strasse.stadt_name"></small>
+                                                                            </div>
+                                                                        </template>
+                                                                        <!-- Straße mit mehreren Lokationen: einzeln aufklappen -->
+                                                                        <template x-if="strasse.lokationen.length > 1">
+                                                                            <div>
+                                                                                <div class="lookup-item" style="font-weight:500; cursor:default;">
+                                                                                    <span x-text="strasse.name"></span>
+                                                                                    <small x-text="strasse.stadt_name"></small>
+                                                                                </div>
+                                                                                <template x-for="lok in strasse.lokationen" :key="lok.id">
+                                                                                    <div class="lookup-item" style="padding-left:1.5rem;" @click="lokationWaehlen(strasse, lok)">
+                                                                                        <span x-text="[lok.plz, lok.stadtteil_name].filter(Boolean).join(', ') || '–'"></span>
+                                                                                    </div>
+                                                                                </template>
+                                                                            </div>
+                                                                        </template>
+                                                                    </div>
+                                                                </template>
+                                                                <div class="lookup-item lookup-new" @click="neueAdresseStarten()">
+                                                                    + Neue Adresse anlegen
+                                                                </div>
+                                                            </div>
+                                                        </template>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Inline-Formular: Neue Adresse -->
+                                                <template x-if="neueAdresse.aktiv">
+                                                    <div style="margin-top:0.75rem; padding:0.75rem; background:var(--pico-card-background-color); border:1px solid var(--pico-table-border-color); border-radius:var(--pico-border-radius);">
+                                                        <p style="font-size:0.85rem; font-weight:600; margin:0 0 0.5rem;">Neue Adresse</p>
+                                                        <div class="grid">
+                                                            <label style="margin:0;">
+                                                                <span style="font-size:0.8rem;">Straße *</span>
+                                                                <input type="text" x-model="neueAdresse.strasse_name" :disabled="neueAdresse.saving" style="margin:0;">
+                                                            </label>
+                                                            <label style="margin:0;">
+                                                                <span style="font-size:0.8rem;">Wikidata Straße</span>
+                                                                <input type="text" x-model="neueAdresse.wikidata_id_strasse" placeholder="Q12345" :disabled="neueAdresse.saving" style="margin:0;">
+                                                            </label>
+                                                        </div>
+                                                        <div class="grid" style="margin-top:0.4rem;">
+                                                            <label style="margin:0;">
+                                                                <span style="font-size:0.8rem;">Stadtteil</span>
+                                                                <input type="text" x-model="neueAdresse.stadtteil_name" :disabled="neueAdresse.saving" style="margin:0;">
+                                                            </label>
+                                                            <label style="margin:0;">
+                                                                <span style="font-size:0.8rem;">Wikidata Stadtteil</span>
+                                                                <input type="text" x-model="neueAdresse.wikidata_id_stadtteil" placeholder="Q12345" :disabled="neueAdresse.saving" style="margin:0;">
+                                                            </label>
+                                                        </div>
+                                                        <div class="grid" style="margin-top:0.4rem;">
+                                                            <label style="margin:0;">
+                                                                <span style="font-size:0.8rem;">PLZ</span>
+                                                                <input type="text" x-model="neueAdresse.plz" :disabled="neueAdresse.saving" style="margin:0;">
+                                                            </label>
+                                                            <label style="margin:0;">
+                                                                <span style="font-size:0.8rem;">Stadt *</span>
+                                                                <input type="text" x-model="neueAdresse.stadt_name" :disabled="neueAdresse.saving" style="margin:0;">
+                                                            </label>
+                                                        </div>
+                                                        <label style="margin-top:0.4rem; margin-bottom:0;">
+                                                            <span style="font-size:0.8rem;">Wikidata Ort</span>
+                                                            <input type="text" x-model="neueAdresse.wikidata_id_ort" placeholder="Q1733" :disabled="neueAdresse.saving" style="margin:0;">
+                                                        </label>
+                                                        <template x-if="neueAdresse.error">
+                                                            <p style="color:var(--pico-del-color); font-size:0.85rem; margin:0.4rem 0 0;" x-text="neueAdresse.error"></p>
+                                                        </template>
+                                                        <div style="display:flex; gap:0.5rem; margin-top:0.6rem;">
+                                                            <button type="button" class="outline" style="margin:0; padding:0.35rem 0.75rem; font-size:0.85rem;"
+                                                                    @click="neueAdresse.aktiv = false" :disabled="neueAdresse.saving">
+                                                                Abbrechen
+                                                            </button>
+                                                            <button type="button" style="margin:0; padding:0.35rem 0.75rem; font-size:0.85rem;"
+                                                                    @click="neueAdresseSpeichern()" :aria-busy="neueAdresse.saving" :disabled="neueAdresse.saving">
+                                                                Adresse übernehmen
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+
+                                        <!-- Hausnummer (immer sichtbar) -->
+                                        <label style="margin-top:0.6rem; margin-bottom:0;">
+                                            Hausnummer
+                                            <input type="text" x-model="form.hausnummer_aktuell" :disabled="saving" style="margin:0;">
+                                        </label>
+                                    </fieldset>
+
+                                    <!-- Koordinaten -->
+                                    <fieldset style="border:1px solid var(--pico-table-border-color); border-radius:var(--pico-border-radius); padding:0.75rem; margin-bottom:var(--pico-spacing);">
+                                        <legend style="font-size:0.85rem; padding:0 0.4rem; color:var(--pico-muted-color);">Koordinaten</legend>
+                                        <div class="grid">
+                                            <label style="margin:0;">
+                                                Breitengrad (lat)
+                                                <input type="number" x-model="form.lat" step="0.00000001" placeholder="52.13000000" :disabled="saving">
+                                            </label>
+                                            <label style="margin:0;">
+                                                Längengrad (lon)
+                                                <input type="number" x-model="form.lon" step="0.00000001" placeholder="11.62000000" :disabled="saving">
+                                            </label>
+                                        </div>
+                                    </fieldset>
+
+                                    <label>
+                                        Beschreibung
+                                        <textarea x-model="form.beschreibung" rows="2" :disabled="saving" placeholder="z.B. vor dem Eingang, linke Seite …"></textarea>
+                                    </label>
+
+                                    <label>
+                                        Historische Bemerkung
+                                        <textarea x-model="form.bemerkung_historisch" rows="2" :disabled="saving" placeholder="Frühere Adresse, Umbenennungen …"></textarea>
+                                    </label>
+
+                                    <template x-if="formError">
+                                        <p style="color:var(--pico-del-color);" x-text="formError"></p>
+                                    </template>
+
+                                    <footer style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                                        <button type="button" class="outline" @click="closeModal()" :disabled="saving">Abbrechen</button>
+                                        <button type="submit" :aria-busy="saving" :disabled="saving">Speichern</button>
+                                    </footer>
+                                </form>
+                            </article>
+                        </dialog>
+
+                        <!-- Modal: Löschen bestätigen -->
+                        <dialog :open="deleteConfirmOpen" @keydown.escape.window="if(deleteConfirmOpen) closeDelete()">
+                            <article>
+                                <header><h3>Verlegeort löschen</h3></header>
+                                <p>
+                                    Soll <strong x-text="deleteOrtName"></strong> wirklich gelöscht werden?<br>
+                                    <small style="color:var(--pico-muted-color);">Verknüpfte Stolpersteine müssen vorher entfernt werden.</small>
+                                </p>
+                                <footer style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                                    <button class="outline" @click="closeDelete()" :disabled="deleting">Abbrechen</button>
+                                    <button style="background:var(--pico-del-color); border-color:var(--pico-del-color);"
+                                            @click="doDelete()" :aria-busy="deleting" :disabled="deleting">
+                                        Löschen
+                                    </button>
+                                </footer>
+                            </article>
+                        </dialog>
+
+                    </div>
+                </template>
+
+                <!-- Dokumente (Platzhalter) -->
+                <template x-if="router.is('dokumente')">
+                    <div>
+                        <div class="page-placeholder">
+                            <h2>Dokumente</h2>
+                            <p>Diese Seite wird in der nächsten Phase implementiert.</p>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Suche (Platzhalter) -->
+                <template x-if="router.is('suche')">
+                    <div>
+                        <div class="page-placeholder">
+                            <h2>Suche</h2>
+                            <p>Diese Seite wird in der nächsten Phase implementiert.</p>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Import (Platzhalter) -->
+                <template x-if="router.is('import')">
+                    <div>
+                        <div class="page-placeholder">
+                            <h2>Import</h2>
+                            <p>Diese Seite wird in der nächsten Phase implementiert.</p>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Benutzerverwaltung (Platzhalter, nur Admin) -->
+                <template x-if="router.is('benutzerverwaltung')">
+                    <div>
+                        <div class="page-placeholder">
+                            <h2>Benutzerverwaltung</h2>
+                            <p>Diese Seite wird in der nächsten Phase implementiert.</p>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Profil -->
+                <template x-if="router.is('profil')">
+                    <div>
+                        <div class="page-placeholder">
+                            <h2>Mein Profil</h2>
+                            <p>
+                                Angemeldet als <strong x-text="auth.user.benutzername"></strong>
+                                (<span x-text="auth.user.rolle"></span>)
+                            </p>
+                            <p>Eigene Benutzerdaten und Passwort ändern – wird in der nächsten Phase implementiert.</p>
+                        </div>
+                    </div>
+                </template>
+
+            </main>
+        </div>
+    </template>
+
+    <!-- ----------------------------------------------------------------
+         TOAST-BENACHRICHTIGUNGEN
+         ---------------------------------------------------------------- -->
+    <div
+        x-show="notify.message"
+        x-transition
+        :class="['toast', notify.type]"
+        role="alert"
+    >
+        <span x-text="notify.message"></span>
+        <button @click="notify.dismiss()" aria-label="Schließen">✕</button>
+    </div>
+
+</div>
+
+<!-- Alpine.js: immer als letztes laden -->
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+
+</body>
+</html>

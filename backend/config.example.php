@@ -14,9 +14,13 @@ return [
     ],
 
     'app' => [
-        'debug'       => false,           // true nur lokal, nie auf Produktion!
-        'upload_dir'  => __DIR__ . '/../uploads',
-        'base_url'    => 'https://example.com',
+        'debug'        => false,           // true nur lokal, nie auf Produktion!
+        'upload_dir'   => __DIR__ . '/../uploads',
+        'base_url'     => 'https://example.com',
+        // CORS: erlaubte Frontend-Origins (nur relevant wenn debug = true)
+        'cors_origins' => [
+            // 'http://localhost:8001',
+        ],
     ],
 
     'session' => [

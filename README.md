@@ -43,10 +43,13 @@ Stolpersteine/
 ├── backend/         PHP-REST-API
 │   ├── public/      Document Root (php -S ... -t public/)
 │   ├── src/         Quellcode (PSR-4, Namespace Stolpersteine\)
-│   ├── db/          schema.sql + migrations/
+│   ├── db/          schema.sql
 │   ├── API.md       Vollständige Endpunkt-Dokumentation
 │   └── config.php   Nicht im Git (siehe config.example.php)
-├── frontend/        Noch nicht begonnen
+├── frontend/        Alpine.js + Pico CSS (kein Build-Schritt)
+│   ├── index.html   App-Shell (Login, Navigation, Router-Outlet)
+│   ├── css/app.css
+│   └── js/          Stores, API-Client, Seiten-Komponenten
 ├── bruno/           API-Collection für Bruno
 └── uploads/         Hochgeladene Dateien (nicht im Git)
 ```
@@ -66,6 +69,7 @@ Vollständige Dokumentation aller Endpunkte: [backend/API.md](backend/API.md)
 | Auth | `POST /auth/login`, `POST /auth/logout`, `GET /auth/me` |
 | Personen | `GET/POST /personen`, `GET/PUT/DELETE /personen/{id}` |
 | Verlegeorte | `GET/POST /verlegeorte`, `GET/PUT/DELETE /verlegeorte/{id}` |
+| Adressen | `GET /adressen/strassen`, `POST /adressen/lokationen` |
 | Stolpersteine | `GET/POST /stolpersteine`, `GET/PUT/DELETE /stolpersteine/{id}` |
 | Dokumente | `GET/POST /dokumente`, `GET/DELETE /dokumente/{id}` |
 | Suche | `GET /suche` |
@@ -127,4 +131,4 @@ Siehe [projekt_solptersteine.md](projekt_solptersteine.md) für die vollständig
 - ✅ Phase 4 – Excel/CSV-Import
 - ⬜ Phase 5 – Templates & Exporte
 - ⬜ Phase 6 – Externe Validierung (Wikidata/OSM)
-- ⬜ Phase 7 – Frontend
+- 🔄 Phase 7 – Frontend (Personen ✅, Verlegeorte ✅, Adress-Normalisierung ✅)

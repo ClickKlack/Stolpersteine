@@ -21,31 +21,41 @@ class VerlegeortRepository
         $where  = [];
         $params = [];
 
+        $sql = 'SELECT v.id, v.hausnummer_aktuell, v.beschreibung, v.lat, v.lon,
+                       v.adress_lokation_id,
+                       s.name  AS strasse_aktuell,  s.wikidata_id  AS wikidata_id_strasse,
+                       st.name AS stadtteil,        st.wikidata_id AS wikidata_id_stadtteil,
+                       p.plz   AS plz_aktuell,
+                       sta.name AS stadt,           sta.wikidata_id AS wikidata_id_ort,
+                       v.grid_n, v.grid_m,
+                       v.erstellt_am, v.geaendert_am
+                FROM verlegeorte v
+                LEFT JOIN adress_lokationen al ON al.id  = v.adress_lokation_id
+                LEFT JOIN strassen s            ON s.id  = al.strasse_id
+                LEFT JOIN stadtteile st         ON st.id = al.stadtteil_id
+                LEFT JOIN plz p                 ON p.id  = al.plz_id
+                LEFT JOIN staedte sta           ON sta.id = s.stadt_id';
+
         if (!empty($filter['stadtteil'])) {
-            $where[]  = 'stadtteil LIKE ?';
+            $where[]  = 'st.name LIKE ?';
             $params[] = '%' . $filter['stadtteil'] . '%';
         }
 
         if (!empty($filter['strasse'])) {
-            $where[]  = 'strasse_aktuell LIKE ?';
+            $where[]  = 's.name LIKE ?';
             $params[] = '%' . $filter['strasse'] . '%';
         }
 
         if (!empty($filter['plz'])) {
-            $where[]  = 'plz_aktuell = ?';
+            $where[]  = 'p.plz = ?';
             $params[] = $filter['plz'];
         }
-
-        $sql = 'SELECT id, beschreibung, lat, lon, stadtteil,
-                       strasse_aktuell, hausnummer_aktuell, plz_aktuell,
-                       grid_n, grid_m, wikidata_id_strasse, erstellt_am, geaendert_am
-                FROM verlegeorte';
 
         if ($where !== []) {
             $sql .= ' WHERE ' . implode(' AND ', $where);
         }
 
-        $sql .= ' ORDER BY stadtteil, strasse_aktuell, hausnummer_aktuell';
+        $sql .= ' ORDER BY st.name, s.name, v.hausnummer_aktuell';
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
@@ -55,10 +65,15 @@ class VerlegeortRepository
     public function findByAddress(string $strasse, string $hausnummer): ?array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT id, strasse_aktuell, hausnummer_aktuell, stadtteil, plz_aktuell, lat, lon
-             FROM verlegeorte
-             WHERE LOWER(strasse_aktuell) = LOWER(?)
-               AND LOWER(hausnummer_aktuell) = LOWER(?)
+            'SELECT v.id, s.name AS strasse_aktuell, v.hausnummer_aktuell,
+                    st.name AS stadtteil, p.plz AS plz_aktuell, v.lat, v.lon
+             FROM verlegeorte v
+             LEFT JOIN adress_lokationen al ON al.id  = v.adress_lokation_id
+             LEFT JOIN strassen s            ON s.id  = al.strasse_id
+             LEFT JOIN stadtteile st         ON st.id = al.stadtteil_id
+             LEFT JOIN plz p                 ON p.id  = al.plz_id
+             WHERE LOWER(s.name) = LOWER(?)
+               AND LOWER(v.hausnummer_aktuell) = LOWER(?)
              LIMIT 1'
         );
         $stmt->execute([$strasse, $hausnummer]);
@@ -69,13 +84,21 @@ class VerlegeortRepository
     public function findById(int $id): ?array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT id, beschreibung, lat, lon, stadtteil,
-                    strasse_aktuell, hausnummer_aktuell, plz_aktuell,
-                    adresse_alt, bemerkung_historisch, wikidata_id_strasse,
-                    grid_n, grid_m, raster_beschreibung,
-                    erstellt_am, erstellt_von, geaendert_am, geaendert_von
-             FROM verlegeorte
-             WHERE id = ?'
+            'SELECT v.id, v.hausnummer_aktuell, v.beschreibung, v.lat, v.lon,
+                    v.adress_lokation_id, v.adresse_alt, v.bemerkung_historisch,
+                    s.name  AS strasse_aktuell,  s.wikidata_id  AS wikidata_id_strasse,
+                    st.name AS stadtteil,        st.wikidata_id AS wikidata_id_stadtteil,
+                    p.plz   AS plz_aktuell,
+                    sta.name AS stadt,           sta.wikidata_id AS wikidata_id_ort,
+                    v.grid_n, v.grid_m, v.raster_beschreibung,
+                    v.erstellt_am, v.erstellt_von, v.geaendert_am, v.geaendert_von
+             FROM verlegeorte v
+             LEFT JOIN adress_lokationen al ON al.id  = v.adress_lokation_id
+             LEFT JOIN strassen s            ON s.id  = al.strasse_id
+             LEFT JOIN stadtteile st         ON st.id = al.stadtteil_id
+             LEFT JOIN plz p                 ON p.id  = al.plz_id
+             LEFT JOIN staedte sta           ON sta.id = s.stadt_id
+             WHERE v.id = ?'
         );
         $stmt->execute([$id]);
         $row = $stmt->fetch();
@@ -84,7 +107,6 @@ class VerlegeortRepository
             return null;
         }
 
-        // JSON-Feld dekodieren
         if ($row['adresse_alt'] !== null) {
             $row['adresse_alt'] = json_decode($row['adresse_alt'], true);
         }
@@ -96,25 +118,21 @@ class VerlegeortRepository
     {
         $stmt = $this->pdo->prepare(
             'INSERT INTO verlegeorte
-                (beschreibung, lat, lon, stadtteil,
-                 strasse_aktuell, hausnummer_aktuell, plz_aktuell,
-                 adresse_alt, bemerkung_historisch, wikidata_id_strasse,
+                (adress_lokation_id, hausnummer_aktuell, beschreibung, lat, lon,
+                 adresse_alt, bemerkung_historisch,
                  grid_n, grid_m, raster_beschreibung,
                  erstellt_von, geaendert_von)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
 
         $stmt->execute([
+            isset($data['adress_lokation_id']) ? (int) $data['adress_lokation_id'] : null,
+            $data['hausnummer_aktuell']   ?? null,
             $data['beschreibung']         ?? null,
             $data['lat']                  ?? null,
             $data['lon']                  ?? null,
-            $data['stadtteil']            ?? null,
-            $data['strasse_aktuell']      ?? null,
-            $data['hausnummer_aktuell']   ?? null,
-            $data['plz_aktuell']          ?? null,
             isset($data['adresse_alt']) ? json_encode($data['adresse_alt'], JSON_UNESCAPED_UNICODE) : null,
             $data['bemerkung_historisch'] ?? null,
-            $data['wikidata_id_strasse']  ?? null,
             isset($data['grid_n']) ? (int) $data['grid_n'] : null,
             isset($data['grid_m']) ? (int) $data['grid_m'] : null,
             $data['raster_beschreibung']  ?? null,
@@ -129,16 +147,13 @@ class VerlegeortRepository
     {
         $stmt = $this->pdo->prepare(
             'UPDATE verlegeorte SET
+                adress_lokation_id   = ?,
+                hausnummer_aktuell   = ?,
                 beschreibung         = ?,
                 lat                  = ?,
                 lon                  = ?,
-                stadtteil            = ?,
-                strasse_aktuell      = ?,
-                hausnummer_aktuell   = ?,
-                plz_aktuell          = ?,
                 adresse_alt          = ?,
                 bemerkung_historisch = ?,
-                wikidata_id_strasse  = ?,
                 grid_n               = ?,
                 grid_m               = ?,
                 raster_beschreibung  = ?,
@@ -147,16 +162,13 @@ class VerlegeortRepository
         );
 
         $stmt->execute([
+            isset($data['adress_lokation_id']) ? (int) $data['adress_lokation_id'] : null,
+            $data['hausnummer_aktuell']   ?? null,
             $data['beschreibung']         ?? null,
             $data['lat']                  ?? null,
             $data['lon']                  ?? null,
-            $data['stadtteil']            ?? null,
-            $data['strasse_aktuell']      ?? null,
-            $data['hausnummer_aktuell']   ?? null,
-            $data['plz_aktuell']          ?? null,
             isset($data['adresse_alt']) ? json_encode($data['adresse_alt'], JSON_UNESCAPED_UNICODE) : null,
             $data['bemerkung_historisch'] ?? null,
-            $data['wikidata_id_strasse']  ?? null,
             isset($data['grid_n']) ? (int) $data['grid_n'] : null,
             isset($data['grid_m']) ? (int) $data['grid_m'] : null,
             $data['raster_beschreibung']  ?? null,

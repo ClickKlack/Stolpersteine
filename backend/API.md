@@ -159,6 +159,11 @@ Person löschen. Erfordert **Admin**.
 
 ## Verlegeorte
 
+Adressdaten sind normalisiert: Straße, Stadtteil, PLZ und Stadt werden in eigenen Tabellen
+geführt und über eine `adress_lokation_id` referenziert. Die Antwortfelder (`strasse_aktuell`,
+`stadtteil`, `plz_aktuell`, `stadt`, `wikidata_id_*`) werden per JOIN befüllt und sind
+abwärtskompatibel benannt.
+
 ### `GET /api/verlegeorte`
 Liste aller Verlegeorte. Optional filterbar.
 
@@ -166,9 +171,9 @@ Liste aller Verlegeorte. Optional filterbar.
 
 | Parameter | Beschreibung |
 |---|---|
-| `stadtteil` | Teilsuche (LIKE) |
-| `strasse` | Teilsuche (LIKE) |
-| `plz` | Exakt |
+| `stadtteil` | Teilsuche (LIKE) auf `stadtteile.name` |
+| `strasse` | Teilsuche (LIKE) auf `strassen.name` |
+| `plz` | Exakt auf `plz.plz` |
 
 **Antwort `200`:**
 ```json
@@ -177,16 +182,20 @@ Liste aller Verlegeorte. Optional filterbar.
   "data": [
     {
       "id": 1,
+      "adress_lokation_id": 3,
+      "hausnummer_aktuell": "42",
       "beschreibung": null,
       "lat": 52.12345678,
       "lon": 11.12345678,
-      "stadtteil": "Altstadt",
       "strasse_aktuell": "Hegelstraße",
-      "hausnummer_aktuell": "42",
+      "wikidata_id_strasse": "Q12345",
+      "stadtteil": "Altstadt",
+      "wikidata_id_stadtteil": null,
       "plz_aktuell": "39104",
+      "stadt": "Magdeburg",
+      "wikidata_id_ort": "Q1733",
       "grid_n": null,
       "grid_m": null,
-      "wikidata_id_strasse": null,
       "erstellt_am": "2025-01-01 10:00:00",
       "geaendert_am": "2025-01-01 10:00:00"
     }
@@ -199,40 +208,41 @@ Liste aller Verlegeorte. Optional filterbar.
 ### `POST /api/verlegeorte`
 Neuen Verlegeort anlegen. Erfordert Login.
 
+Die Adresse wird vorab über `POST /api/adressen/lokationen` aufgelöst (find-or-create).
+Die zurückgegebene `lokation_id` wird als `adress_lokation_id` übergeben.
+
 **Body (JSON):**
 ```json
 {
-  "strasse_aktuell": "Hegelstraße",
+  "adress_lokation_id": 3,
   "hausnummer_aktuell": "42",
-  "stadtteil": "Altstadt",
-  "plz_aktuell": "39104",
   "lat": 52.12345678,
   "lon": 11.12345678,
   "beschreibung": null,
   "bemerkung_historisch": null,
   "adresse_alt": null,
-  "wikidata_id_strasse": null,
   "grid_n": null,
   "grid_m": null,
   "raster_beschreibung": null
 }
 ```
 
-**Antwort `201`:** vollständiger Datensatz
+**Antwort `201`:** vollständiger Datensatz (wie `GET /api/verlegeorte`)
 
 ---
 
 ### `GET /api/verlegeorte/{id}`
 Einen Verlegeort per ID abrufen.
 
-**Antwort `200`:** vollständiger Datensatz inkl. `adresse_alt` (JSON), `raster_beschreibung`, `erstellt_von`, `geaendert_von`
+**Antwort `200`:** vollständiger Datensatz inkl. `adresse_alt` (JSON), `bemerkung_historisch`,
+`raster_beschreibung`, `erstellt_von`, `geaendert_von`
 
 **Fehler:** `404` – nicht gefunden
 
 ---
 
 ### `PUT /api/verlegeorte/{id}`
-Verlegeort aktualisieren. Erfordert Login.
+Verlegeort aktualisieren. Erfordert Login. Body wie `POST`.
 
 **Antwort `200`:** aktualisierter Datensatz
 
@@ -244,6 +254,94 @@ Verlegeort löschen. Erfordert **Admin**.
 **Antwort:** `204 No Content`
 
 **Fehler:** `409` – Verlegeort hat zugeordnete Stolpersteine
+
+---
+
+## Adressen (Lookup & Normalisierung)
+
+Hilfendpunkte zur Auflösung normalisierter Adressdaten. Werden vom Frontend beim Anlegen /
+Bearbeiten eines Verlegeorts genutzt.
+
+### `GET /api/adressen/strassen?q=`
+Straßen nach Name suchen (mindestens 2 Zeichen). Erfordert Login.
+
+**Query-Parameter:**
+
+| Parameter | Beschreibung |
+|---|---|
+| `q` | Suchbegriff, Teilsuche (LIKE), min. 2 Zeichen |
+
+**Antwort `200`:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "name": "Hegelstraße",
+      "wikidata_id": "Q12345",
+      "stadt_id": 1,
+      "stadt_name": "Magdeburg",
+      "wikidata_id_ort": "Q1733",
+      "lokationen": [
+        {
+          "id": 3,
+          "strasse_id": 1,
+          "stadtteil_name": "Altstadt",
+          "wikidata_id_stadtteil": null,
+          "plz": "39104"
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+### `POST /api/adressen/lokationen`
+Adresslokation auflösen oder anlegen (find-or-create). Erfordert Login.
+
+Legt bei Bedarf Stadt, Straße, Stadtteil, PLZ und die Lokation an. Gibt immer eine bestehende
+oder neu angelegte Lokation zurück.
+
+**Body (JSON):**
+```json
+{
+  "strasse_name": "Hegelstraße",
+  "wikidata_id_strasse": "Q12345",
+  "stadtteil_name": "Altstadt",
+  "wikidata_id_stadtteil": null,
+  "plz": "39104",
+  "stadt_name": "Magdeburg",
+  "wikidata_id_ort": "Q1733"
+}
+```
+
+**Pflichtfelder:** `strasse_name`, `stadt_name`
+
+**Antwort `200`:**
+```json
+{
+  "success": true,
+  "data": {
+    "lokation_id": 3,
+    "strasse_id": 1,
+    "strasse_name": "Hegelstraße",
+    "wikidata_id_strasse": "Q12345",
+    "stadtteil_id": 2,
+    "stadtteil_name": "Altstadt",
+    "wikidata_id_stadtteil": null,
+    "plz_id": 5,
+    "plz": "39104",
+    "stadt_id": 1,
+    "stadt_name": "Magdeburg",
+    "wikidata_id_ort": "Q1733"
+  }
+}
+```
+
+**Fehler:** `422` – `strasse_name` oder `stadt_name` fehlt
 
 ---
 

@@ -26,8 +26,7 @@ class PersonenHandler extends BaseHandler
         Auth::required();
 
         $filter = array_filter([
-            'nachname'    => $this->queryParam('nachname'),
-            'geburtsname' => $this->queryParam('geburtsname'),
+            'name'        => $this->queryParam('name'),
             'geburtsjahr' => $this->queryParam('geburtsjahr'),
         ]);
 

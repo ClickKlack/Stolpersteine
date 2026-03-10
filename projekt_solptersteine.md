@@ -37,21 +37,22 @@ Alle Tabellen enthalten:
 
 ### 2.2 Verlegeorte (`verlegeorte`)
 - `id` INT PK AI
+- `adress_lokation_id` INT FK → `adress_lokationen.id` (nullable)
+- `hausnummer_aktuell` VARCHAR(50)
 - `beschreibung` TEXT
 - `lat` DECIMAL(10,8)
 - `lon` DECIMAL(11,8)
 - ~~`geo_point` POINT~~ → entfernt (SPATIAL INDEX nicht nullable auf Shared Hosting)
-- `stadtteil` VARCHAR(100)
-- `strasse_aktuell` VARCHAR(255)
-- `hausnummer_aktuell` VARCHAR(50)
-- `plz_aktuell` VARCHAR(10)
 - `adresse_alt` JSON
 - `bemerkung_historisch` TEXT
-- `wikidata_id_strasse` VARCHAR(50)
 - `grid_n` INT
 - `grid_m` INT
 - `raster_beschreibung` TEXT
   - Raster ist **1/1-basiert**, Ursprung **links oben**
+
+Straße, PLZ, Stadtteil und Stadt werden normalisiert in eigenen Tabellen geführt (→ 2.7).
+Die API-Antworten liefern diese Felder als JOIN-Aliase (`strasse_aktuell`, `plz_aktuell`, `stadtteil`,
+`stadt`, `wikidata_id_strasse`, `wikidata_id_stadtteil`, `wikidata_id_ort`) — abwärtskompatibel benannt.
 
 ### 2.3 Stolpersteine (`stolpersteine`)
 - `id` INT PK AI
@@ -98,6 +99,20 @@ Volltextindex getrennt von Kerntabellen.
 - `audit_log` — Lückenlose Protokollierung aller Änderungen
 - `validierungen` — Ergebnisse der Wikidata/OSM-Checks
 
+### 2.7 Adress-Normalisierung
+Straßen, Stadtteile, PLZ und Städte werden in eigenen Tabellen verwaltet und über eine
+Bridge-Entität `adress_lokationen` verknüpft. `verlegeorte` hält nur eine FK darauf.
+
+- `staedte` – `id`, `name`, `wikidata_id`
+- `stadtteile` – `id`, `name`, `wikidata_id`, `stadt_id` FK
+- `strassen` – `id`, `name`, `wikidata_id`, `stadt_id` FK
+- `plz` – `id`, `plz`, `stadt_id` FK (UNIQUE `plz + stadt_id`)
+- `adress_lokationen` – `id`, `strasse_id` FK, `stadtteil_id` FK (nullable), `plz_id` FK (nullable)
+
+**find-or-create-Muster:** `POST /api/adressen/lokationen` löst eine vollständige Adresse auf —
+legt alle fehlenden Einträge an und gibt die Lokation zurück. Wikidata-IDs werden beim ersten
+Vorkommen gesetzt und danach nie überschrieben. NULL-sichere Eindeutigkeit via MySQL `<=>` Operator.
+
 ---
 
 ## Projektstruktur
@@ -117,13 +132,15 @@ Stolpersteine/
 │   │   │   ├── VerlegeorteHandler.php
 │   │   │   ├── StolpersteineHandler.php
 │   │   │   ├── DokumenteHandler.php
+│   │   │   ├── AdressenHandler.php   # GET /adressen/strassen, POST /adressen/lokationen
 │   │   │   ├── SucheHandler.php
 │   │   │   ├── ImportHandler.php     # POST /api/import/analyze|preview|execute
 │   │   │   └── ExportHandler.php     # (Phase 5, noch nicht implementiert)
 │   │   ├── Repository/
 │   │   │   ├── AuditRepository.php   # Zentrales Audit-Log
 │   │   │   ├── PersonRepository.php
-│   │   │   ├── VerlegeortRepository.php
+│   │   │   ├── VerlegeortRepository.php  # JOINs auf adress_lokationen
+│   │   │   ├── AdresseRepository.php     # find-or-create für Adress-Normalisierung
 │   │   │   ├── StolpersteinRepository.php
 │   │   │   └── DokumentRepository.php
 │   │   ├── Service/
@@ -141,13 +158,19 @@ Stolpersteine/
 │   ├── composer.json        # PSR-4 Autoloading (Stolpersteine\)
 │   └── config.example.php  # Vorlage für config.php (nicht im Git)
 │
-├── frontend/                # (noch nicht begonnen)
-│   ├── index.html
+├── frontend/                # Alpine.js + Pico CSS (kein Build-Schritt)
+│   ├── index.html           # App-Shell: Login, Navigation, Router-Outlet
 │   ├── css/
-│   ├── js/
-│   │   ├── api.js
-│   │   └── pages/
-│   └── assets/
+│   │   └── app.css          # Custom Styles (ergänzt Pico CSS)
+│   └── js/
+│       ├── config.js        # API-Basis-URL
+│       ├── api.js           # fetch-Client (get/post/put/delete/upload)
+│       ├── app.js           # Stores (auth, notify, router) + Haupt-Komponente
+│       └── pages/
+│           ├── login.js        # Login-Formular
+│           ├── dashboard.js    # Übersichts-Statistiken
+│           ├── personen.js     # Personen-CRUD (Liste, Filter, Modal, Löschen)
+│           └── verlegeorte.js  # Verlegeorte-CRUD + Adress-Lookup-Widget
 │
 ├── bruno/                   # Bruno API-Collection (versioniert)
 │   ├── bruno.json
@@ -337,10 +360,23 @@ Ergebnisse werden in `validierungen` gespeichert.
 - Speicherung der Ergebnisse in `validierungen`
 - Wikipedia-Diff (seitenweises Einlesen, feldweiser Vergleich)
 
-### Phase 7: Frontend
-- Vanilla JS, kein Framework
-- Seiten: Personen, Steine, Verlegeorte, Dokumente, Suche, Export
-- `api.js` als zentraler HTTP-Client (fetch-basiert, Cookie-Auth)
+### 🔄 Phase 7: Frontend
+- **Alpine.js** (kein Build-Schritt, CDN), **Pico CSS** für Basis-Styling
+- Hash-basiertes Routing via `Alpine.store('router')`
+- `js/api.js` als zentraler HTTP-Client (fetch-basiert, Cookie-Auth)
+- `js/app.js` mit Stores: `auth`, `notify`, `router`, `config` (lädt Stadtkonfiguration nach Login)
+- Jede Seite ist eine eigene `Alpine.data()`-Komponente in `js/pages/`
+
+Implementiert:
+- ✅ Login-Seite + Session-Handling
+- ✅ Dashboard mit Statistiken
+- ✅ Personen-Verwaltung (Liste, Filter, Modal Anlegen/Bearbeiten, Lösch-Bestätigung)
+- ✅ Verlegeorte-Verwaltung mit normalisierter Adress-Eingabe:
+  - Autocomplete-Lookup (`GET /adressen/strassen`)
+  - Inline-Formular „Neue Adresse" (`POST /adressen/lokationen`)
+  - Anzeige gewählter Adresse mit Wikidata-Buttons je Straße / Stadtteil / Stadt
+
+Ausstehend: Stolpersteine, Dokumente, Suche, Import, Export, Benutzerverwaltung
 
 ### Phase 8: Feinschliff & Erweiterungen
 - Optimierungen

@@ -19,10 +19,16 @@ Config::load(__DIR__ . '/../config.php');
 header('Content-Type: application/json; charset=utf-8');
 
 // CORS für lokale Entwicklung
+// Credentials (Cookies) erfordern eine explizite Origin statt Wildcard '*'
 if (Config::get('app')['debug'] ?? false) {
-    header('Access-Control-Allow-Origin: *');
-    header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-    header('Access-Control-Allow-Headers: Content-Type, Authorization');
+    $allowedOrigins = Config::get('app')['cors_origins'] ?? [];
+    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+    if (in_array($origin, $allowedOrigins, true)) {
+        header('Access-Control-Allow-Origin: ' . $origin);
+        header('Access-Control-Allow-Credentials: true');
+        header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+        header('Access-Control-Allow-Headers: Content-Type');
+    }
 }
 
 // OPTIONS-Preflight sofort beantworten
@@ -78,6 +84,13 @@ $router->add('GET', '/export/{format}', 'Stolpersteine\Api\ExportHandler', 'expo
 $router->add('POST', '/import/analyze', 'Stolpersteine\Api\ImportHandler', 'analyze');
 $router->add('POST', '/import/preview', 'Stolpersteine\Api\ImportHandler', 'preview');
 $router->add('POST', '/import/execute', 'Stolpersteine\Api\ImportHandler', 'execute');
+
+// Adressen (Lookup)
+$router->add('GET',  '/adressen/strassen',   'Stolpersteine\Api\AdressenHandler', 'strassen');
+$router->add('POST', '/adressen/lokationen', 'Stolpersteine\Api\AdressenHandler', 'createLokation');
+
+// Konfiguration
+$router->add('GET', '/konfiguration', 'Stolpersteine\Api\KonfigurationHandler', 'index');
 
 // Auth
 $router->add('POST', '/auth/login',  'Stolpersteine\Api\AuthHandler', 'login');

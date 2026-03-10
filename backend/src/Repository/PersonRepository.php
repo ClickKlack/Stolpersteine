@@ -22,14 +22,13 @@ class PersonRepository
         $where  = [];
         $params = [];
 
-        if (!empty($filter['nachname'])) {
-            $where[]  = 'nachname LIKE ?';
-            $params[] = '%' . $filter['nachname'] . '%';
-        }
-
-        if (!empty($filter['geburtsname'])) {
-            $where[]  = 'geburtsname LIKE ?';
-            $params[] = '%' . $filter['geburtsname'] . '%';
+        // Kombinierte Namenssuche: Vor-, Nach- und Geburtsname (OR-Verknüpfung)
+        if (!empty($filter['name'])) {
+            $term     = '%' . $filter['name'] . '%';
+            $where[]  = '(vorname LIKE ? OR nachname LIKE ? OR geburtsname LIKE ?)';
+            $params[] = $term;
+            $params[] = $term;
+            $params[] = $term;
         }
 
         if (!empty($filter['geburtsjahr'])) {
@@ -37,7 +36,9 @@ class PersonRepository
             $params[] = (int) $filter['geburtsjahr'];
         }
 
-        $sql = 'SELECT id, vorname, nachname, geburtsname, geburtsdatum, sterbedatum,
+        $sql = 'SELECT id, vorname, nachname, geburtsname,
+                       geburtsdatum, geburtsdatum_genauigkeit,
+                       sterbedatum, sterbedatum_genauigkeit,
                        biografie_kurz, wikidata_id_person, erstellt_am, geaendert_am
                 FROM personen';
 
@@ -70,7 +71,9 @@ class PersonRepository
     public function findById(int $id): ?array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT id, vorname, nachname, geburtsname, geburtsdatum, sterbedatum,
+            'SELECT id, vorname, nachname, geburtsname,
+                    geburtsdatum, geburtsdatum_genauigkeit,
+                    sterbedatum, sterbedatum_genauigkeit,
                     biografie_kurz, wikidata_id_person,
                     erstellt_am, erstellt_von, geaendert_am, geaendert_von
              FROM personen
@@ -85,19 +88,23 @@ class PersonRepository
     {
         $stmt = $this->pdo->prepare(
             'INSERT INTO personen
-                (vorname, nachname, geburtsname, geburtsdatum, sterbedatum,
+                (vorname, nachname, geburtsname,
+                 geburtsdatum, geburtsdatum_genauigkeit,
+                 sterbedatum, sterbedatum_genauigkeit,
                  biografie_kurz, wikidata_id_person, erstellt_von, geaendert_von)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
 
         $stmt->execute([
-            $data['vorname']            ?? null,
+            $data['vorname']                     ?? null,
             $data['nachname'],
-            $data['geburtsname']        ?? null,
-            $data['geburtsdatum']       ?? null,
-            $data['sterbedatum']        ?? null,
-            $data['biografie_kurz']     ?? null,
-            $data['wikidata_id_person'] ?? null,
+            $data['geburtsname']                 ?? null,
+            $data['geburtsdatum']                ?? null,
+            $data['geburtsdatum_genauigkeit']    ?? null,
+            $data['sterbedatum']                 ?? null,
+            $data['sterbedatum_genauigkeit']     ?? null,
+            $data['biografie_kurz']              ?? null,
+            $data['wikidata_id_person']          ?? null,
             $benutzer,
             $benutzer,
         ]);
@@ -109,25 +116,29 @@ class PersonRepository
     {
         $stmt = $this->pdo->prepare(
             'UPDATE personen SET
-                vorname            = ?,
-                nachname           = ?,
-                geburtsname        = ?,
-                geburtsdatum       = ?,
-                sterbedatum        = ?,
-                biografie_kurz     = ?,
-                wikidata_id_person = ?,
-                geaendert_von      = ?
+                vorname                     = ?,
+                nachname                    = ?,
+                geburtsname                 = ?,
+                geburtsdatum                = ?,
+                geburtsdatum_genauigkeit    = ?,
+                sterbedatum                 = ?,
+                sterbedatum_genauigkeit     = ?,
+                biografie_kurz              = ?,
+                wikidata_id_person          = ?,
+                geaendert_von               = ?
              WHERE id = ?'
         );
 
         $stmt->execute([
-            $data['vorname']            ?? null,
+            $data['vorname']                     ?? null,
             $data['nachname'],
-            $data['geburtsname']        ?? null,
-            $data['geburtsdatum']       ?? null,
-            $data['sterbedatum']        ?? null,
-            $data['biografie_kurz']     ?? null,
-            $data['wikidata_id_person'] ?? null,
+            $data['geburtsname']                 ?? null,
+            $data['geburtsdatum']                ?? null,
+            $data['geburtsdatum_genauigkeit']    ?? null,
+            $data['sterbedatum']                 ?? null,
+            $data['sterbedatum_genauigkeit']     ?? null,
+            $data['biografie_kurz']              ?? null,
+            $data['wikidata_id_person']          ?? null,
             $benutzer,
             $id,
         ]);

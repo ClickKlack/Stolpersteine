@@ -60,8 +60,10 @@ CREATE TABLE IF NOT EXISTS personen (
     vorname             VARCHAR(255),
     nachname            VARCHAR(255)    NOT NULL,
     geburtsname         VARCHAR(255),
-    geburtsdatum        DATE,
-    sterbedatum         DATE,
+    geburtsdatum                DATE,
+    geburtsdatum_genauigkeit    ENUM('tag', 'monat', 'jahr'),
+    sterbedatum                 DATE,
+    sterbedatum_genauigkeit     ENUM('tag', 'monat', 'jahr'),
     biografie_kurz      TEXT,
     wikidata_id_person  VARCHAR(50),
     erstellt_am         DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -75,21 +77,77 @@ CREATE TABLE IF NOT EXISTS personen (
 
 
 -- ------------------------------------------------------------
+-- Adress-Normalisierung
+-- ------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS staedte (
+    id              INT             NOT NULL AUTO_INCREMENT,
+    name            VARCHAR(255)    NOT NULL,
+    wikidata_id     VARCHAR(50),
+    PRIMARY KEY (id),
+    INDEX idx_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS stadtteile (
+    id              INT             NOT NULL AUTO_INCREMENT,
+    name            VARCHAR(100)    NOT NULL,
+    wikidata_id     VARCHAR(50),
+    stadt_id        INT             NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT fk_stadtteil_stadt FOREIGN KEY (stadt_id) REFERENCES staedte(id) ON UPDATE CASCADE,
+    INDEX idx_name   (name),
+    INDEX idx_stadt  (stadt_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS strassen (
+    id              INT             NOT NULL AUTO_INCREMENT,
+    name            VARCHAR(255)    NOT NULL,
+    wikidata_id     VARCHAR(50),
+    stadt_id        INT             NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT fk_strasse_stadt FOREIGN KEY (stadt_id) REFERENCES staedte(id) ON UPDATE CASCADE,
+    INDEX idx_name   (name),
+    INDEX idx_stadt  (stadt_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS plz (
+    id              INT             NOT NULL AUTO_INCREMENT,
+    plz             VARCHAR(10)     NOT NULL,
+    stadt_id        INT             NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT fk_plz_stadt FOREIGN KEY (stadt_id) REFERENCES staedte(id) ON UPDATE CASCADE,
+    UNIQUE KEY uq_plz_stadt (plz, stadt_id),
+    INDEX idx_plz (plz)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS adress_lokationen (
+    id              INT             NOT NULL AUTO_INCREMENT,
+    strasse_id      INT             NOT NULL,
+    stadtteil_id    INT,
+    plz_id          INT,
+    PRIMARY KEY (id),
+    CONSTRAINT fk_lokation_strasse   FOREIGN KEY (strasse_id)   REFERENCES strassen(id)   ON UPDATE CASCADE,
+    CONSTRAINT fk_lokation_stadtteil FOREIGN KEY (stadtteil_id) REFERENCES stadtteile(id) ON UPDATE CASCADE,
+    CONSTRAINT fk_lokation_plz       FOREIGN KEY (plz_id)       REFERENCES plz(id)        ON UPDATE CASCADE,
+    INDEX idx_strasse   (strasse_id),
+    INDEX idx_stadtteil (stadtteil_id),
+    INDEX idx_plz       (plz_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- ------------------------------------------------------------
 -- Verlegeorte
 -- ------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS verlegeorte (
     id                      INT             NOT NULL AUTO_INCREMENT,
+    adress_lokation_id      INT,
+    hausnummer_aktuell      VARCHAR(50),
     beschreibung            TEXT,
     lat                     DECIMAL(10,8),
     lon                     DECIMAL(11,8),
-    stadtteil               VARCHAR(100),
-    strasse_aktuell         VARCHAR(255),
-    hausnummer_aktuell      VARCHAR(50),
-    plz_aktuell             VARCHAR(10),
     adresse_alt             JSON,
     bemerkung_historisch    TEXT,
-    wikidata_id_strasse     VARCHAR(50),
     grid_n                  INT             COMMENT 'Rasterspalte, 1-basiert, Ursprung links oben',
     grid_m                  INT             COMMENT 'Rasterzeile, 1-basiert, Ursprung links oben',
     raster_beschreibung     TEXT,
@@ -98,8 +156,8 @@ CREATE TABLE IF NOT EXISTS verlegeorte (
     geaendert_am            DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     geaendert_von           VARCHAR(100)    NOT NULL,
     PRIMARY KEY (id),
-    INDEX idx_stadtteil (stadtteil),
-    INDEX idx_strasse (strasse_aktuell)
+    CONSTRAINT fk_verlegeort_lokation FOREIGN KEY (adress_lokation_id) REFERENCES adress_lokationen(id) ON UPDATE CASCADE,
+    INDEX idx_lokation (adress_lokation_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
