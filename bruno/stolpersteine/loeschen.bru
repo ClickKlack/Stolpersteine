@@ -1,0 +1,17 @@
+meta {
+  name: Stolpersteine – Löschen
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{baseUrl}}/stolpersteine/{{stolpersteinId}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("Gelöscht", function() {
+    expect(res.status).to.equal(204);
+  });
+}

@@ -1,0 +1,38 @@
+meta {
+  name: Personen – Erstellen
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/personen
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "nachname": "Testperson",
+    "vorname": "Max",
+    "geburtsdatum": "1900-01-01",
+    "sterbedatum": "1942-06-15",
+    "biografie_kurz": "Testdatensatz"
+  }
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setVar("personId", res.body.data.id);
+  }
+}
+
+tests {
+  test("Person erstellt", function() {
+    expect(res.status).to.equal(201);
+    expect(res.body.data.nachname).to.equal("Testperson");
+  });
+}

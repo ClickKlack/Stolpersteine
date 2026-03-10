@@ -1,0 +1,39 @@
+meta {
+  name: Verlegeorte – Erstellen
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/verlegeorte
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "strasse_aktuell": "Hegelstraße",
+    "hausnummer_aktuell": "42",
+    "stadtteil": "Altstadt",
+    "plz_aktuell": "39104",
+    "lat": 52.12345678,
+    "lon": 11.12345678
+  }
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setVar("verlegeortId", res.body.data.id);
+  }
+}
+
+tests {
+  test("Verlegeort erstellt", function() {
+    expect(res.status).to.equal(201);
+    expect(res.body.data.strasse_aktuell).to.equal("Hegelstraße");
+  });
+}

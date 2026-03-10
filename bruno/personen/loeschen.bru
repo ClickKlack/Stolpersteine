@@ -1,0 +1,17 @@
+meta {
+  name: Personen – Löschen
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{baseUrl}}/personen/{{personId}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("Gelöscht", function() {
+    expect(res.status).to.equal(204);
+  });
+}

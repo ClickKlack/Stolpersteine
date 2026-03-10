@@ -1,0 +1,27 @@
+meta {
+  name: Stolpersteine – Liste
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/stolpersteine
+  body: none
+  auth: none
+}
+
+query {
+  status:
+  zustand:
+  stadtteil:
+  strasse:
+  person_id:
+  ohne_wikidata:
+}
+
+tests {
+  test("Status 200", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.data).to.be.an("array");
+  });
+}

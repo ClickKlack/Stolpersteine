@@ -19,21 +19,18 @@ Temporary Items
 *.swo
 *~
 
-# Node.js (falls später relevant)
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# PHP
+backend/vendor/
 
-# Python (falls später relevant)
-__pycache__/
-*.py[cod]
-*.pyo
-.env
-venv/
-.venv/
+# Anwendungskonfiguration (enthält DB-Zugangsdaten)
+backend/config.php
 
-# Umgebungsvariablen
-.env
-.env.local
-.env.*.local
+# Uploads (Nutzdaten, nicht versioniert)
+uploads/
+
+# Logs
+*.log
+
+# Bruno – Environments mit Secrets (production, staging)
+bruno/environments/production.bru
+bruno/environments/staging.bru

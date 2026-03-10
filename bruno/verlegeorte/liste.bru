@@ -1,0 +1,24 @@
+meta {
+  name: Verlegeorte – Liste
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/verlegeorte
+  body: none
+  auth: none
+}
+
+query {
+  stadtteil:
+  strasse:
+  plz:
+}
+
+tests {
+  test("Status 200", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.data).to.be.an("array");
+  });
+}

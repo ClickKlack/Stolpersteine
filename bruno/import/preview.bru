@@ -1,0 +1,25 @@
+meta {
+  name: Import – Preview (Dry-Run)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/import/preview
+  body: multipartForm
+  auth: none
+}
+
+body:multipart {
+  datei: @file(/tmp/test_import.xlsx)
+  mapping: {"nachname":"A","vorname":"B","geburtsdatum":"C","sterbedatum":"D","strasse_aktuell":"E","hausnummer_aktuell":"F","stadtteil":"G","plz_aktuell":"H","verlegedatum":"I"}
+  startzeile: 2
+}
+
+tests {
+  test("Status 200", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.data).to.have.property("gesamt");
+    expect(res.body.data.fehler).to.equal(0);
+  });
+}

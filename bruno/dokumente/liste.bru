@@ -1,0 +1,23 @@
+meta {
+  name: Dokumente – Liste
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/dokumente
+  body: none
+  auth: none
+}
+
+query {
+  person_id:
+  stolperstein_id:
+  typ:
+}
+
+tests {
+  test("Status 200", function() {
+    expect(res.status).to.equal(200);
+  });
+}

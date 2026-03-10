@@ -1,0 +1,33 @@
+meta {
+  name: Stolpersteine – Aktualisieren
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/stolpersteine/{{stolpersteinId}}
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "person_id": {{personId}},
+    "verlegeort_id": {{verlegeortId}},
+    "status": "freigegeben",
+    "zustand": "verfuegbar",
+    "verlegedatum": "2005-11-10",
+    "inschrift": "HIER WOHNTE ..."
+  }
+}
+
+tests {
+  test("Status aktualisiert", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.data.status).to.equal("freigegeben");
+  });
+}

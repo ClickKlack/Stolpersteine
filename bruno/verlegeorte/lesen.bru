@@ -1,0 +1,17 @@
+meta {
+  name: Verlegeorte – Lesen
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/verlegeorte/{{verlegeortId}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("Status 200", function() {
+    expect(res.status).to.equal(200);
+  });
+}

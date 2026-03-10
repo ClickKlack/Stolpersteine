@@ -1,0 +1,34 @@
+meta {
+  name: Verlegeorte – Aktualisieren
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/verlegeorte/{{verlegeortId}}
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "strasse_aktuell": "Hegelstraße",
+    "hausnummer_aktuell": "42",
+    "stadtteil": "Altstadt",
+    "plz_aktuell": "39104",
+    "lat": 52.12345678,
+    "lon": 11.12345678,
+    "beschreibung": "Beschreibung aktualisiert"
+  }
+}
+
+tests {
+  test("Aktualisiert", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.data.beschreibung).to.equal("Beschreibung aktualisiert");
+  });
+}

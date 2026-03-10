@@ -1,0 +1,17 @@
+{
+    "name": "clickklack/stolpersteine",
+    "description": "Stolperstein-Verwaltungssystem",
+    "type": "project",
+    "require": {
+        "php": ">=8.1",
+        "phpoffice/phpspreadsheet": "^5.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "Stolpersteine\\": "src/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true
+    }
+}

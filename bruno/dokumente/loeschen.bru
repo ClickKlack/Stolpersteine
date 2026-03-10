@@ -1,0 +1,17 @@
+meta {
+  name: Dokumente – Löschen
+  type: http
+  seq: 4
+}
+
+delete {
+  url: {{baseUrl}}/dokumente/{{dokumentId}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("Gelöscht", function() {
+    expect(res.status).to.equal(204);
+  });
+}

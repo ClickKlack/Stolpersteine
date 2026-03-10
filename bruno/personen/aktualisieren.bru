@@ -1,0 +1,32 @@
+meta {
+  name: Personen – Aktualisieren
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/personen/{{personId}}
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "nachname": "Testperson",
+    "vorname": "Max",
+    "geburtsdatum": "1900-01-01",
+    "sterbedatum": "1942-06-15",
+    "biografie_kurz": "Biografie aktualisiert"
+  }
+}
+
+tests {
+  test("Aktualisiert", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.data.biografie_kurz).to.equal("Biografie aktualisiert");
+  });
+}

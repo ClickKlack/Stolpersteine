@@ -1,0 +1,17 @@
+meta {
+  name: Verlegeorte – Löschen
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{baseUrl}}/verlegeorte/{{verlegeortId}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("Gelöscht", function() {
+    expect(res.status).to.equal(204);
+  });
+}

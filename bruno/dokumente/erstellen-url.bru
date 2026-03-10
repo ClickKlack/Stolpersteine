@@ -1,0 +1,37 @@
+meta {
+  name: Dokumente – Erstellen (URL)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/dokumente
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "titel": "Wikipedia-Artikel",
+    "quelle_url": "https://de.wikipedia.org/wiki/Stolperstein",
+    "typ": "url",
+    "person_id": {{personId}}
+  }
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setVar("dokumentId", res.body.data.id);
+  }
+}
+
+tests {
+  test("Dokument erstellt", function() {
+    expect(res.status).to.equal(201);
+    expect(res.body.data.typ).to.equal("url");
+  });
+}

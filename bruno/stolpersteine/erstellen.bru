@@ -1,0 +1,39 @@
+meta {
+  name: Stolpersteine – Erstellen
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/stolpersteine
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "person_id": {{personId}},
+    "verlegeort_id": {{verlegeortId}},
+    "status": "neu",
+    "zustand": "verfuegbar",
+    "verlegedatum": "2005-11-10",
+    "inschrift": "HIER WOHNTE ..."
+  }
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setVar("stolpersteinId", res.body.data.id);
+  }
+}
+
+tests {
+  test("Stolperstein erstellt", function() {
+    expect(res.status).to.equal(201);
+    expect(res.body.data.status).to.equal("neu");
+  });
+}

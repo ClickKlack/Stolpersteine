@@ -1,0 +1,18 @@
+meta {
+  name: Me (Session prüfen)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/auth/me
+  body: none
+  auth: none
+}
+
+tests {
+  test("Session aktiv", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.data.benutzername).to.equal("admin");
+  });
+}
