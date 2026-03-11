@@ -591,32 +591,40 @@
                                         <template x-if="adresse">
                                             <div>
                                                 <div class="adresse-block">
-                                                    <span x-text="adresse.strasse_name"></span>
-                                                    <button type="button" class="btn-icon btn-wikidata" x-show="adresse.wikidata_id_strasse"
-                                                            @click="window.open('https://www.wikidata.org/wiki/' + adresse.wikidata_id_strasse, '_blank')"
-                                                            title="Wikidata Straße" aria-label="Wikidata Straße öffnen">
-                                                        <span x-html="ICONS.wikidata"></span>
-                                                    </button>
-                                                    <template x-if="adresse.stadtteil_name || adresse.plz">
-                                                        <span style="color:var(--pico-muted-color);">·</span>
-                                                    </template>
-                                                    <span x-show="adresse.plz" x-text="adresse.plz"></span>
-                                                    <span x-show="adresse.stadtteil_name" x-text="adresse.stadtteil_name"></span>
-                                                    <button type="button" class="btn-icon btn-wikidata" x-show="adresse.wikidata_id_stadtteil"
-                                                            @click="window.open('https://www.wikidata.org/wiki/' + adresse.wikidata_id_stadtteil, '_blank')"
-                                                            title="Wikidata Stadtteil" aria-label="Wikidata Stadtteil öffnen">
-                                                        <span x-html="ICONS.wikidata"></span>
-                                                    </button>
-                                                    <template x-if="adresse.stadt_name">
-                                                        <span style="color:var(--pico-muted-color);">·</span>
-                                                    </template>
-                                                    <span x-show="adresse.stadt_name" x-text="adresse.stadt_name"></span>
-                                                    <button type="button" class="btn-icon btn-wikidata" x-show="adresse.wikidata_id_ort"
-                                                            @click="window.open('https://www.wikidata.org/wiki/' + adresse.wikidata_id_ort, '_blank')"
-                                                            title="Wikidata Ort" aria-label="Wikidata Ort öffnen">
-                                                        <span x-html="ICONS.wikidata"></span>
-                                                    </button>
-                                                    <button type="button" class="outline" style="margin-left:auto; padding:0.2rem 0.6rem; font-size:0.8rem;"
+                                                    <span style="display:flex; flex-wrap:wrap; align-items:center; gap:0.4rem; flex:1;">
+                                                        <span x-text="adresse.strasse_name"></span>
+                                                        <button type="button" class="btn-icon btn-wikidata" x-show="adresse.wikidata_id_strasse"
+                                                                @click="window.open('https://www.wikidata.org/wiki/' + adresse.wikidata_id_strasse, '_blank')"
+                                                                title="Wikidata Straße" aria-label="Wikidata Straße öffnen">
+                                                            <span x-html="ICONS.wikidata"></span>
+                                                        </button>
+                                                        <template x-if="adresse.plz || adresse.stadt_name || adresse.stadtteil_name">
+                                                            <span style="color:var(--pico-muted-color);">·</span>
+                                                        </template>
+                                                        <span x-show="adresse.plz" x-text="adresse.plz"></span>
+                                                        <template x-if="adresse.stadt_name">
+                                                            <span style="display:contents;">
+                                                                <span x-text="adresse.stadt_name"></span>
+                                                                <button type="button" class="btn-icon btn-wikidata" x-show="adresse.wikidata_id_ort"
+                                                                        @click="window.open('https://www.wikidata.org/wiki/' + adresse.wikidata_id_ort, '_blank')"
+                                                                        title="Wikidata Ort" aria-label="Wikidata Ort öffnen">
+                                                                    <span x-html="ICONS.wikidata"></span>
+                                                                </button>
+                                                            </span>
+                                                        </template>
+                                                        <template x-if="adresse.stadtteil_name">
+                                                            <span style="display:contents;">
+                                                                <span style="color:var(--pico-muted-color);">·</span>
+                                                                <span x-text="adresse.stadtteil_name"></span>
+                                                                <button type="button" class="btn-icon btn-wikidata" x-show="adresse.wikidata_id_stadtteil"
+                                                                        @click="window.open('https://www.wikidata.org/wiki/' + adresse.wikidata_id_stadtteil, '_blank')"
+                                                                        title="Wikidata Stadtteil" aria-label="Wikidata Stadtteil öffnen">
+                                                                    <span x-html="ICONS.wikidata"></span>
+                                                                </button>
+                                                            </span>
+                                                        </template>
+                                                    </span>
+                                                    <button type="button" class="outline" style="padding:0.2rem 0.6rem; font-size:0.8rem;"
                                                             @click="adresseZuruecksetzen()" :disabled="saving">
                                                         Ändern
                                                     </button>
@@ -687,7 +695,7 @@
 
                                                 <!-- Inline-Formular: Neue Adresse -->
                                                 <template x-if="neueAdresse.aktiv">
-                                                    <div style="margin-top:0.75rem; padding:0.75rem; background:var(--pico-card-background-color); border:1px solid var(--pico-table-border-color); border-radius:var(--pico-border-radius);">
+                                                    <div style="margin-top:0.75rem; padding:0.75rem; background:color-mix(in srgb, var(--pico-secondary-background) 20%, transparent); border:1px solid var(--pico-table-border-color); border-radius:var(--pico-border-radius);">
                                                         <p style="font-size:0.85rem; font-weight:600; margin:0 0 0.5rem;">Neue Adresse</p>
                                                         <div class="grid">
                                                             <label style="margin:0;">

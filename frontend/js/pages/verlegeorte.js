@@ -153,6 +153,10 @@ document.addEventListener('alpine:init', () => {
         },
 
         closeModal() {
+            if (this.neueAdresse.aktiv) {
+                this.formError = 'Bitte zuerst die neue Adresse speichern oder abbrechen.';
+                return;
+            }
             this.modalOpen = false;
         },
 

@@ -292,7 +292,7 @@ nav ul.nav-links li a.active {
 }
 
 .lookup-item:hover {
-    background: var(--pico-secondary-background);
+    background: color-mix(in srgb, var(--pico-secondary-background) 20%, transparent);
 }
 
 .lookup-item small {
@@ -314,15 +314,19 @@ nav ul.nav-links li a.active {
 
 .adresse-block {
     padding: 0.5rem 0.75rem;
-    background: var(--pico-secondary-background);
+    background: color-mix(in srgb, var(--pico-secondary-background) 20%, transparent);
     border: 1px solid var(--pico-table-border-color);
     border-radius: var(--pico-border-radius);
     display: flex;
     align-items: center;
     gap: 0.4rem;
-    flex-wrap: wrap;
     font-size: 0.875rem;
     margin-bottom: 0.5rem;
+}
+
+.adresse-block > button {
+    margin: 0;
+    flex-shrink: 0;
 }
 
 /* ----- Placeholder für zukünftige Seiten ------------------ */
