@@ -32,12 +32,12 @@ class StolpersteinRepository
         }
 
         if (!empty($filter['stadtteil'])) {
-            $where[]  = 'v.stadtteil LIKE ?';
+            $where[]  = 'st.name LIKE ?';
             $params[] = '%' . $filter['stadtteil'] . '%';
         }
 
         if (!empty($filter['strasse'])) {
-            $where[]  = 'v.strasse_aktuell LIKE ?';
+            $where[]  = 's.name LIKE ?';
             $params[] = '%' . $filter['strasse'] . '%';
         }
 
@@ -52,19 +52,23 @@ class StolpersteinRepository
 
         $sql = 'SELECT s.id, s.person_id, s.verlegeort_id,
                        p.vorname, p.nachname,
-                       v.strasse_aktuell, v.hausnummer_aktuell, v.stadtteil,
+                       str.name AS strasse_aktuell, v.hausnummer_aktuell,
+                       st.name  AS stadtteil,
                        s.verlegedatum, s.status, s.zustand,
                        s.wikidata_id_stein, s.osm_id,
                        s.erstellt_am, s.geaendert_am
                 FROM stolpersteine s
-                JOIN personen     p ON p.id = s.person_id
-                JOIN verlegeorte  v ON v.id = s.verlegeort_id';
+                JOIN personen     p   ON p.id  = s.person_id
+                JOIN verlegeorte  v   ON v.id  = s.verlegeort_id
+                LEFT JOIN adress_lokationen al  ON al.id  = v.adress_lokation_id
+                LEFT JOIN strassen          str ON str.id = al.strasse_id
+                LEFT JOIN stadtteile        st  ON st.id  = al.stadtteil_id';
 
         if ($where !== []) {
             $sql .= ' WHERE ' . implode(' AND ', $where);
         }
 
-        $sql .= ' ORDER BY v.stadtteil, v.strasse_aktuell, p.nachname';
+        $sql .= ' ORDER BY st.name, str.name, p.nachname';
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
@@ -76,12 +80,16 @@ class StolpersteinRepository
         $stmt = $this->pdo->prepare(
             'SELECT s.*,
                     p.vorname, p.nachname, p.geburtsdatum, p.sterbedatum,
-                    v.strasse_aktuell, v.hausnummer_aktuell, v.stadtteil,
+                    str.name AS strasse_aktuell, v.hausnummer_aktuell,
+                    st.name  AS stadtteil,
                     v.lat, v.lon,
                     si.aktualisiert_am AS suchindex_aktualisiert_am
              FROM stolpersteine s
-             JOIN personen    p  ON p.id  = s.person_id
-             JOIN verlegeorte v  ON v.id  = s.verlegeort_id
+             JOIN personen    p   ON p.id  = s.person_id
+             JOIN verlegeorte v   ON v.id  = s.verlegeort_id
+             LEFT JOIN adress_lokationen al  ON al.id  = v.adress_lokation_id
+             LEFT JOIN strassen          str ON str.id = al.strasse_id
+             LEFT JOIN stadtteile        st  ON st.id  = al.stadtteil_id
              LEFT JOIN suchindex si ON si.stolperstein_id = s.id
              WHERE s.id = ?'
         );

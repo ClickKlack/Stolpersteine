@@ -78,11 +78,16 @@ class SuchindexService
         $stmt = $this->pdo->prepare(
             'SELECT s.id, s.inschrift, s.verlegedatum,
                     p.vorname, p.nachname, p.geburtsname, p.geburtsdatum, p.sterbedatum, p.biografie_kurz,
-                    v.strasse_aktuell, v.hausnummer_aktuell, v.stadtteil, v.plz_aktuell,
+                    str.name AS strasse_aktuell, v.hausnummer_aktuell,
+                    st.name  AS stadtteil, pl.plz AS plz_aktuell,
                     v.beschreibung AS ort_beschreibung, v.bemerkung_historisch
              FROM stolpersteine s
-             JOIN personen    p ON p.id = s.person_id
-             JOIN verlegeorte v ON v.id = s.verlegeort_id
+             JOIN personen    p   ON p.id  = s.person_id
+             JOIN verlegeorte v   ON v.id  = s.verlegeort_id
+             LEFT JOIN adress_lokationen al  ON al.id  = v.adress_lokation_id
+             LEFT JOIN strassen          str ON str.id = al.strasse_id
+             LEFT JOIN stadtteile        st  ON st.id  = al.stadtteil_id
+             LEFT JOIN plz               pl  ON pl.id  = al.plz_id
              WHERE s.id = ?'
         );
         $stmt->execute([$id]);

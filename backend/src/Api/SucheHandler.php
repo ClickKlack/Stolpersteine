@@ -32,9 +32,13 @@ class SucheHandler extends BaseHandler
         $select = 's.id, s.status, s.zustand, s.verlegedatum,
                    s.wikidata_id_stein, s.osm_id,
                    p.vorname, p.nachname,
-                   v.strasse_aktuell, v.hausnummer_aktuell, v.stadtteil';
-        $joins  = 'JOIN personen    p ON p.id = s.person_id
-                   JOIN verlegeorte v ON v.id = s.verlegeort_id';
+                   str.name AS strasse_aktuell, v.hausnummer_aktuell,
+                   st.name  AS stadtteil';
+        $joins  = 'JOIN personen    p   ON p.id  = s.person_id
+                   JOIN verlegeorte v   ON v.id  = s.verlegeort_id
+                   LEFT JOIN adress_lokationen al  ON al.id  = v.adress_lokation_id
+                   LEFT JOIN strassen          str ON str.id = al.strasse_id
+                   LEFT JOIN stadtteile        st  ON st.id  = al.stadtteil_id';
         $where  = [];
         $params = [];
 
@@ -59,11 +63,11 @@ class SucheHandler extends BaseHandler
             $params[] = $zustand;
         }
         if ($stadtteil) {
-            $where[]  = 'v.stadtteil LIKE ?';
+            $where[]  = 'st.name LIKE ?';
             $params[] = '%' . $stadtteil . '%';
         }
         if ($strasse) {
-            $where[]  = 'v.strasse_aktuell LIKE ?';
+            $where[]  = 'str.name LIKE ?';
             $params[] = '%' . $strasse . '%';
         }
         if ($ohneWikidata) {
@@ -74,7 +78,7 @@ class SucheHandler extends BaseHandler
         if ($where !== []) {
             $sql .= ' WHERE ' . implode(' AND ', $where);
         }
-        $sql .= $hatVolltext ? ' ORDER BY relevanz DESC' : ' ORDER BY v.stadtteil, p.nachname';
+        $sql .= $hatVolltext ? ' ORDER BY relevanz DESC' : ' ORDER BY st.name, p.nachname';
         $sql .= ' LIMIT 200';
 
         // Bei Volltext: q kommt zweimal (SELECT + WHERE), Rest danach
