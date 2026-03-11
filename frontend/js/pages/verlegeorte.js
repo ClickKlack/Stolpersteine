@@ -1,3 +1,8 @@
+// Leaflet-Instanzen außerhalb von Alpine (nicht reaktiv)
+let _listMap   = null;
+let _editMap   = null;
+let _editMarker = null;
+
 document.addEventListener('alpine:init', () => {
     Alpine.data('verlegeortePage', () => ({
 
@@ -50,6 +55,9 @@ document.addEventListener('alpine:init', () => {
             saving:              false,
             error:               null,
         },
+
+        // ----- Kartenvorschau (Liste) --------------------------------------
+        mapPreview: { open: false, lat: null, lon: null, adresse: '' },
 
         // ----- Löschen -----------------------------------------------------
         deleteId: null,
@@ -113,7 +121,10 @@ document.addEventListener('alpine:init', () => {
                 error:                null,
             };
             this.modalOpen = true;
-            this.$nextTick(() => document.getElementById('v-lookup')?.focus());
+            this.$nextTick(() => {
+                document.getElementById('v-lookup')?.focus();
+                this.initEditMap();
+            });
         },
 
         openEdit(ort) {
@@ -150,6 +161,7 @@ document.addEventListener('alpine:init', () => {
                 stadt_name: '', wikidata_id_ort: '', saving: false, error: null,
             };
             this.modalOpen = true;
+            this.$nextTick(() => this.initEditMap());
         },
 
         closeModal() {
@@ -158,6 +170,7 @@ document.addEventListener('alpine:init', () => {
                 return;
             }
             this.modalOpen = false;
+            if (_editMap) { _editMap.remove(); _editMap = null; _editMarker = null; }
         },
 
         // ----- Adress-Lookup -----------------------------------------------
@@ -287,6 +300,7 @@ document.addEventListener('alpine:init', () => {
                     Alpine.store('notify').success('Verlegeort gespeichert.');
                 }
                 this.modalOpen = false;
+                if (_editMap) { _editMap.remove(); _editMap = null; _editMarker = null; }
                 await this.load();
             } catch (e) {
                 this.formError = e.message || 'Speichern fehlgeschlagen.';
@@ -328,6 +342,97 @@ document.addEventListener('alpine:init', () => {
         koordinatenAnzeige(ort) {
             if (!ort.lat || !ort.lon) return '–';
             return parseFloat(ort.lat).toFixed(5) + ', ' + parseFloat(ort.lon).toFixed(5);
+        },
+
+        // ----- Karten-Methoden ---------------------------------------------
+
+        _mapCenter() {
+            // Mittelpunkt aus vorhandenen Orten berechnen, sonst Fallback
+            const mitKoords = this.orte.filter(o => o.lat && o.lon);
+            if (mitKoords.length > 0) {
+                const lat = mitKoords.reduce((s, o) => s + parseFloat(o.lat), 0) / mitKoords.length;
+                const lon = mitKoords.reduce((s, o) => s + parseFloat(o.lon), 0) / mitKoords.length;
+                return [lat, lon];
+            }
+            return [52.13, 11.62]; // Fallback
+        },
+
+        openMapPreview(ort) {
+            if (!ort.lat || !ort.lon) return;
+            this.mapPreview = {
+                open:    true,
+                lat:     ort.lat,
+                lon:     ort.lon,
+                adresse: this.adresseAnzeige(ort) || 'Standort',
+            };
+            this.$nextTick(() => {
+                if (_listMap) { _listMap.remove(); _listMap = null; }
+                _listMap = L.map('map-preview').setView([ort.lat, ort.lon], 17);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                }).addTo(_listMap);
+                L.marker([ort.lat, ort.lon]).addTo(_listMap);
+            });
+        },
+
+        closeMapPreview() {
+            this.mapPreview.open = false;
+            if (_listMap) { _listMap.remove(); _listMap = null; }
+        },
+
+        initEditMap() {
+            if (_editMap) { _editMap.remove(); _editMap = null; _editMarker = null; }
+            const hasCoords = this.form.lat !== '' && this.form.lon !== '';
+            const lat  = hasCoords ? parseFloat(this.form.lat) : this._mapCenter()[0];
+            const lon  = hasCoords ? parseFloat(this.form.lon) : this._mapCenter()[1];
+            const zoom = hasCoords ? 17 : 13;
+
+            _editMap = L.map('map-edit').setView([lat, lon], zoom);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            }).addTo(_editMap);
+
+            if (hasCoords) {
+                _editMarker = L.marker([lat, lon], { draggable: true }).addTo(_editMap);
+                _editMarker.on('dragend', (e) => {
+                    const pos = e.target.getLatLng();
+                    this.form.lat = pos.lat.toFixed(8);
+                    this.form.lon = pos.lng.toFixed(8);
+                });
+            }
+
+            _editMap.on('click', (e) => {
+                this.form.lat = e.latlng.lat.toFixed(8);
+                this.form.lon = e.latlng.lng.toFixed(8);
+                if (_editMarker) {
+                    _editMarker.setLatLng(e.latlng);
+                } else {
+                    _editMarker = L.marker(e.latlng, { draggable: true }).addTo(_editMap);
+                    _editMarker.on('dragend', (ev) => {
+                        const pos = ev.target.getLatLng();
+                        this.form.lat = pos.lat.toFixed(8);
+                        this.form.lon = pos.lng.toFixed(8);
+                    });
+                }
+            });
+        },
+
+        updateEditMapMarker() {
+            if (!_editMap) return;
+            const lat = parseFloat(this.form.lat);
+            const lon = parseFloat(this.form.lon);
+            if (isNaN(lat) || isNaN(lon)) return;
+            if (_editMarker) {
+                _editMarker.setLatLng([lat, lon]);
+            } else {
+                _editMarker = L.marker([lat, lon], { draggable: true }).addTo(_editMap);
+                _editMarker.on('dragend', (e) => {
+                    const pos = e.target.getLatLng();
+                    this.form.lat = pos.lat.toFixed(8);
+                    this.form.lon = pos.lng.toFixed(8);
+                });
+            }
+            _editMap.setView([lat, lon], 17);
         },
     }));
 });

@@ -8,6 +8,7 @@
     <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <link rel="stylesheet" href="css/app.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
 <body>
 
@@ -20,6 +21,7 @@
 <script src="js/pages/login.js"></script>
 <script src="js/pages/dashboard.js"></script>
 <script src="js/pages/personen.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="js/pages/verlegeorte.js"></script>
 <script src="js/app.js"></script>
 
@@ -552,7 +554,17 @@
                                                                 <span x-html="ICONS.wikidata"></span>
                                                             </button>
                                                         </td>
-                                                        <td x-text="koordinatenAnzeige(ort)" style="font-size:0.8rem; color:var(--pico-muted-color);"></td>
+                                                        <td>
+                                                            <template x-if="ort.lat && ort.lon">
+                                                                <button type="button" class="btn-koordinaten"
+                                                                        @click="openMapPreview(ort)"
+                                                                        x-text="koordinatenAnzeige(ort)"
+                                                                        title="Auf Karte anzeigen"></button>
+                                                            </template>
+                                                            <template x-if="!ort.lat || !ort.lon">
+                                                                <span style="font-size:0.8rem; color:var(--pico-muted-color);">–</span>
+                                                            </template>
+                                                        </td>
                                                         <td style="white-space:nowrap; text-align:right;">
                                                             <button class="btn-icon" @click="openEdit(ort)" title="Bearbeiten" aria-label="Bearbeiten">
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 20 20" fill="currentColor">
@@ -762,13 +774,17 @@
                                         <div class="grid">
                                             <label style="margin:0;">
                                                 Breitengrad (lat)
-                                                <input type="number" x-model="form.lat" step="0.00000001" placeholder="52.13000000" :disabled="saving">
+                                                <input type="number" x-model="form.lat" step="0.00000001" placeholder="52.13000000" :disabled="saving"
+                                                       @change="updateEditMapMarker()">
                                             </label>
                                             <label style="margin:0;">
                                                 Längengrad (lon)
-                                                <input type="number" x-model="form.lon" step="0.00000001" placeholder="11.62000000" :disabled="saving">
+                                                <input type="number" x-model="form.lon" step="0.00000001" placeholder="11.62000000" :disabled="saving"
+                                                       @change="updateEditMapMarker()">
                                             </label>
                                         </div>
+                                        <div id="map-edit" style="height:280px; margin-top:0.75rem; border-radius:var(--pico-border-radius); overflow:hidden;"></div>
+                                        <p style="font-size:0.8rem; color:var(--pico-muted-color); margin:0.4rem 0 0;">Auf die Karte klicken oder Marker ziehen, um Koordinaten zu setzen.</p>
                                     </fieldset>
 
                                     <label>
@@ -790,6 +806,18 @@
                                         <button type="submit" :aria-busy="saving" :disabled="saving">Speichern</button>
                                     </footer>
                                 </form>
+                            </article>
+                        </dialog>
+
+                        <!-- Modal: Kartenvorschau -->
+                        <dialog :open="mapPreview.open" @keydown.escape.window="if(mapPreview.open) closeMapPreview()">
+                            <article style="max-width:560px;">
+                                <header style="display:flex; align-items:center; justify-content:space-between;">
+                                    <h3 style="margin:0;" x-text="mapPreview.adresse"></h3>
+                                    <button type="button" class="btn-icon" @click="closeMapPreview()" aria-label="Schließen"
+                                            style="font-size:1rem; font-weight:700; margin:0;">✕</button>
+                                </header>
+                                <div id="map-preview" style="height:340px; border-radius:var(--pico-border-radius); overflow:hidden;"></div>
                             </article>
                         </dialog>
 

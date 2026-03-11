@@ -37,7 +37,7 @@ class StolpersteinRepository
         }
 
         if (!empty($filter['strasse'])) {
-            $where[]  = 's.name LIKE ?';
+            $where[]  = 'str.name LIKE ?';
             $params[] = '%' . $filter['strasse'] . '%';
         }
 

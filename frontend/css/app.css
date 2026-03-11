@@ -329,6 +329,60 @@ nav ul.nav-links li a.active {
     flex-shrink: 0;
 }
 
+/* ----- Koordinaten-Button in der Liste -------------------- */
+.btn-koordinaten {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    font-size: 0.8rem;
+    color: var(--pico-muted-color);
+    text-decoration: underline dotted;
+    font-family: inherit;
+}
+
+.btn-koordinaten:hover {
+    color: var(--pico-primary);
+    text-decoration: underline;
+}
+
+/* ----- Leaflet: Pico-CSS-Konflikte beheben ---------------- */
+
+/* Marker-Bild: kein Border/Box-Shadow von Pico */
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    background: none !important;
+}
+
+/* Zoom-Buttons: Pico-Reset rückgängig machen */
+.leaflet-control-zoom a {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 26px !important;
+    height: 26px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    line-height: 1 !important;
+    font-size: 18px !important;
+    font-weight: bold !important;
+    color: #333 !important;
+    background: #fff !important;
+    border: 1px solid rgba(0,0,0,0.2) !important;
+    border-radius: 2px !important;
+    text-decoration: none !important;
+    box-shadow: none !important;
+}
+
+.leaflet-control-zoom a:hover {
+    background: #f4f4f4 !important;
+    color: #333 !important;
+}
+
 /* ----- Placeholder für zukünftige Seiten ------------------ */
 .page-placeholder {
     padding: 3rem 0;
