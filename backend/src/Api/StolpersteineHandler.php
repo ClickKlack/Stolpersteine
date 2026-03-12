@@ -20,7 +20,7 @@ class StolpersteineHandler extends BaseHandler
         $this->suchindex = new SuchindexService();
     }
 
-    // GET /stolpersteine?status=&zustand=&stadtteil=&strasse=&person_id=&ohne_wikidata=1
+    // GET /stolpersteine?status=&zustand=&stadtteil=&strasse=&person_id=&ohne_wikidata=1&foto_status=
     public function index(array $params): void
     {
         Auth::required();
@@ -32,6 +32,7 @@ class StolpersteineHandler extends BaseHandler
             'strasse'        => $this->queryParam('strasse'),
             'person_id'      => $this->queryParam('person_id'),
             'ohne_wikidata'  => $this->queryParam('ohne_wikidata'),
+            'foto_status'    => $this->queryParam('foto_status'),
         ]);
 
         Response::success($this->repo->findAll($filter));

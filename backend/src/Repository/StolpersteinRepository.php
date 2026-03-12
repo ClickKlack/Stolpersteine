@@ -50,12 +50,25 @@ class StolpersteinRepository
             $where[] = 's.wikidata_id_stein IS NULL';
         }
 
+        // foto_status: 'ohne_foto' | 'ohne_commons' | 'foto_ohne_commons'
+        if (!empty($filter['foto_status'])) {
+            match($filter['foto_status']) {
+                'ohne_foto'         => $where[] = 's.foto_pfad IS NULL',
+                'ohne_commons'      => $where[] = '(s.wikimedia_commons IS NULL OR s.wikimedia_commons = \'\')',
+                'foto_ohne_commons' => $where[] = '(s.foto_pfad IS NOT NULL AND (s.wikimedia_commons IS NULL OR s.wikimedia_commons = \'\'))',
+                default             => null,
+            };
+        }
+
         $sql = 'SELECT s.id, s.person_id, s.verlegeort_id,
                        p.vorname, p.nachname,
                        str.name AS strasse_aktuell, v.hausnummer_aktuell,
                        st.name  AS stadtteil,
-                       s.verlegedatum, s.status, s.zustand,
+                       s.inschrift, s.verlegedatum, s.status, s.zustand,
                        s.wikidata_id_stein, s.osm_id,
+                       s.foto_pfad, s.wikimedia_commons,
+                       s.foto_lizenz_autor, s.foto_lizenz_name, s.foto_lizenz_url,
+                       s.foto_eigenes,
                        s.erstellt_am, s.geaendert_am
                 FROM stolpersteine s
                 JOIN personen     p   ON p.id  = s.person_id
@@ -104,25 +117,32 @@ class StolpersteinRepository
             'INSERT INTO stolpersteine
                 (person_id, verlegeort_id, verlegedatum, inschrift,
                  pos_x, pos_y, lat_override, lon_override,
-                 foto_pfad, wikidata_id_stein, osm_id,
+                 foto_pfad, wikimedia_commons,
+                 foto_lizenz_autor, foto_lizenz_name, foto_lizenz_url, foto_eigenes,
+                 wikidata_id_stein, osm_id,
                  status, zustand, erstellt_von, geaendert_von)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
 
         $stmt->execute([
             (int) $data['person_id'],
             (int) $data['verlegeort_id'],
-            $data['verlegedatum']       ?? null,
-            $data['inschrift']          ?? null,
-            isset($data['pos_x'])       ? (int) $data['pos_x'] : null,
-            isset($data['pos_y'])       ? (int) $data['pos_y'] : null,
-            $data['lat_override']       ?? null,
-            $data['lon_override']       ?? null,
-            $data['foto_pfad']          ?? null,
-            $data['wikidata_id_stein']  ?? null,
-            isset($data['osm_id'])      ? (int) $data['osm_id'] : null,
-            $data['status']             ?? 'neu',
-            $data['zustand']            ?? 'verfuegbar',
+            $data['verlegedatum']        ?? null,
+            $data['inschrift']           ?? null,
+            isset($data['pos_x'])        ? (int) $data['pos_x'] : null,
+            isset($data['pos_y'])        ? (int) $data['pos_y'] : null,
+            $data['lat_override']        ?? null,
+            $data['lon_override']        ?? null,
+            $data['foto_pfad']              ?? null,
+            $data['wikimedia_commons']      ?? null,
+            $data['foto_lizenz_autor']      ?? null,
+            $data['foto_lizenz_name']       ?? null,
+            $data['foto_lizenz_url']        ?? null,
+            isset($data['foto_eigenes'])    ? (int) $data['foto_eigenes']    : 0,
+            $data['wikidata_id_stein']      ?? null,
+            isset($data['osm_id'])          ? (int) $data['osm_id'] : null,
+            $data['status']                 ?? 'neu',
+            $data['zustand']                ?? 'verfuegbar',
             $benutzer,
             $benutzer,
         ]);
@@ -143,6 +163,8 @@ class StolpersteinRepository
                 lat_override      = ?,
                 lon_override      = ?,
                 foto_pfad         = ?,
+                wikimedia_commons = ?,
+                foto_eigenes      = ?,
                 wikidata_id_stein = ?,
                 osm_id            = ?,
                 status            = ?,
@@ -154,21 +176,55 @@ class StolpersteinRepository
         $stmt->execute([
             (int) $data['person_id'],
             (int) $data['verlegeort_id'],
-            $data['verlegedatum']       ?? null,
-            $data['inschrift']          ?? null,
-            isset($data['pos_x'])       ? (int) $data['pos_x'] : null,
-            isset($data['pos_y'])       ? (int) $data['pos_y'] : null,
-            $data['lat_override']       ?? null,
-            $data['lon_override']       ?? null,
-            $data['foto_pfad']          ?? null,
-            $data['wikidata_id_stein']  ?? null,
-            isset($data['osm_id'])      ? (int) $data['osm_id'] : null,
-            $data['status']             ?? 'neu',
-            $data['zustand']            ?? 'verfuegbar',
+            $data['verlegedatum']        ?? null,
+            $data['inschrift']           ?? null,
+            isset($data['pos_x'])        ? (int) $data['pos_x'] : null,
+            isset($data['pos_y'])        ? (int) $data['pos_y'] : null,
+            $data['lat_override']        ?? null,
+            $data['lon_override']        ?? null,
+            $data['foto_pfad']               ?? null,
+            $data['wikimedia_commons']       ?? null,
+            isset($data['foto_eigenes'])     ? (int) $data['foto_eigenes']     : 0,
+            $data['wikidata_id_stein']       ?? null,
+            isset($data['osm_id'])       ? (int) $data['osm_id'] : null,
+            $data['status']              ?? 'neu',
+            $data['zustand']             ?? 'verfuegbar',
             $benutzer,
             $id,
         ]);
 
+        return $stmt->rowCount() > 0;
+    }
+
+    /**
+     * Aktualisiert nur die Foto-bezogenen Felder eines Stolpersteins.
+     * Felder die nicht im $data-Array enthalten sind, bleiben unverändert.
+     */
+    public function updateFoto(int $id, array $data, string $benutzer): bool
+    {
+        $sets   = ['geaendert_von = ?'];
+        $params = [$benutzer];
+
+        $fotoFelder = [
+            'foto_pfad', 'wikimedia_commons',
+            'foto_lizenz_autor', 'foto_lizenz_name', 'foto_lizenz_url',
+            'foto_eigenes',
+        ];
+
+        foreach ($fotoFelder as $feld) {
+            if (array_key_exists($feld, $data)) {
+                $sets[]   = "$feld = ?";
+                $params[] = $feld === 'foto_eigenes' && $data[$feld] !== null
+                    ? (int) $data[$feld]
+                    : $data[$feld];
+            }
+        }
+
+        $params[] = $id;
+        $sql      = 'UPDATE stolpersteine SET ' . implode(', ', $sets) . ' WHERE id = ?';
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
         return $stmt->rowCount() > 0;
     }
 

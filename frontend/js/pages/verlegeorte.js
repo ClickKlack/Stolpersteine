@@ -336,7 +336,8 @@ document.addEventListener('alpine:init', () => {
 
         // ----- Hilfsfunktionen ---------------------------------------------
         adresseAnzeige(ort) {
-            return [ort.strasse_aktuell, ort.hausnummer_aktuell].filter(Boolean).join(' ');
+            const adresse = [ort.strasse_aktuell, ort.hausnummer_aktuell].filter(Boolean).join(' ');
+            return ort.beschreibung ? adresse + ' (' + ort.beschreibung + ')' : adresse;
         },
 
         koordinatenAnzeige(ort) {

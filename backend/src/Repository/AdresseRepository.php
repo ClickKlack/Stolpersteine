@@ -52,6 +52,22 @@ class AdresseRepository
         return $strassen;
     }
 
+    /**
+     * Stadtteile nach Name suchen – gibt nur Name zurück (ohne Stadt/PLZ-Kontext).
+     */
+    public function searchStadtteile(string $q): array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT DISTINCT name
+             FROM stadtteile
+             WHERE name LIKE ?
+             ORDER BY name
+             LIMIT 20'
+        );
+        $stmt->execute(['%' . $q . '%']);
+        return array_column($stmt->fetchAll(), 'name');
+    }
+
     public function findOrCreateStadt(string $name, ?string $wikidataId): int
     {
         $stmt = $this->pdo->prepare('SELECT id FROM staedte WHERE LOWER(name) = LOWER(?) LIMIT 1');

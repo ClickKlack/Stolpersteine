@@ -30,6 +30,20 @@ class AdressenHandler extends BaseHandler
         Response::success($this->repo->searchStrassen($q));
     }
 
+    // GET /adressen/stadtteile?q=
+    public function stadtteile(array $params): void
+    {
+        Auth::required();
+
+        $q = trim($this->queryParam('q') ?? '');
+        if (mb_strlen($q) < 2) {
+            Response::success([]);
+            return;
+        }
+
+        Response::success($this->repo->searchStadtteile($q));
+    }
+
     // POST /adressen/lokationen
     public function createLokation(array $params): void
     {

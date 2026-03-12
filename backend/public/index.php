@@ -62,11 +62,17 @@ $router->add('PUT',    '/verlegeorte/{id}', 'Stolpersteine\Api\VerlegeorteHandle
 $router->add('DELETE', '/verlegeorte/{id}', 'Stolpersteine\Api\VerlegeorteHandler', 'delete');
 
 // Stolpersteine
-$router->add('GET',    '/stolpersteine',      'Stolpersteine\Api\StolpersteineHandler', 'index');
-$router->add('POST',   '/stolpersteine',      'Stolpersteine\Api\StolpersteineHandler', 'create');
-$router->add('GET',    '/stolpersteine/{id}', 'Stolpersteine\Api\StolpersteineHandler', 'show');
-$router->add('PUT',    '/stolpersteine/{id}', 'Stolpersteine\Api\StolpersteineHandler', 'update');
-$router->add('DELETE', '/stolpersteine/{id}', 'Stolpersteine\Api\StolpersteineHandler', 'delete');
+$router->add('GET',    '/stolpersteine',                          'Stolpersteine\Api\StolpersteineHandler', 'index');
+$router->add('POST',   '/stolpersteine',                          'Stolpersteine\Api\StolpersteineHandler', 'create');
+$router->add('GET',    '/stolpersteine/{id}',                     'Stolpersteine\Api\StolpersteineHandler', 'show');
+$router->add('PUT',    '/stolpersteine/{id}',                     'Stolpersteine\Api\StolpersteineHandler', 'update');
+$router->add('DELETE', '/stolpersteine/{id}',                     'Stolpersteine\Api\StolpersteineHandler', 'delete');
+
+// Fotos
+$router->add('GET',    '/stolpersteine/{id}/foto/vergleich',      'Stolpersteine\Api\FotoHandler', 'vergleich');
+$router->add('POST',   '/stolpersteine/{id}/foto/upload',         'Stolpersteine\Api\FotoHandler', 'upload');
+$router->add('POST',   '/stolpersteine/{id}/foto/commons-import', 'Stolpersteine\Api\FotoHandler', 'commonsImport');
+$router->add('DELETE', '/stolpersteine/{id}/foto',                'Stolpersteine\Api\FotoHandler', 'delete');
 
 // Dokumente
 $router->add('GET',    '/dokumente',      'Stolpersteine\Api\DokumenteHandler', 'index');
@@ -87,6 +93,7 @@ $router->add('POST', '/import/execute', 'Stolpersteine\Api\ImportHandler', 'exec
 
 // Adressen (Lookup)
 $router->add('GET',  '/adressen/strassen',   'Stolpersteine\Api\AdressenHandler', 'strassen');
+$router->add('GET',  '/adressen/stadtteile', 'Stolpersteine\Api\AdressenHandler', 'stadtteile');
 $router->add('POST', '/adressen/lokationen', 'Stolpersteine\Api\AdressenHandler', 'createLokation');
 
 // Konfiguration

@@ -262,6 +262,14 @@ nav ul.nav-links li a.active {
     border-color: #339966;
 }
 
+/* ----- Klickbare Tabellenzeilen --------------------------- */
+tr.tr-clickable {
+    cursor: pointer;
+}
+tr.tr-clickable:hover td {
+    background: color-mix(in srgb, var(--pico-primary) 6%, transparent);
+}
+
 /* ----- Adress-Lookup -------------------------------------- */
 .lookup-wrapper {
     position: relative;
@@ -328,6 +336,26 @@ nav ul.nav-links li a.active {
     margin: 0;
     flex-shrink: 0;
 }
+
+/* ----- Status- und Zustand-Badges ------------------------- */
+.badge {
+    display: inline-block;
+    padding: 0.15em 0.55em;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.badge-status-neu       { background: #dbeafe; color: #1d4ed8; }
+.badge-status-aktiv     { background: #dcfce7; color: #166534; }
+.badge-status-entfernt  { background: #ffedd5; color: #9a3412; }
+.badge-status-zerstoert { background: #fee2e2; color: #991b1b; }
+
+.badge-zustand-verfuegbar  { background: #dcfce7; color: #166534; }
+.badge-zustand-beschaedigt { background: #ffedd5; color: #9a3412; }
+.badge-zustand-gestohlen   { background: #fee2e2; color: #991b1b; }
+.badge-zustand-ersetzt     { background: #dbeafe; color: #1d4ed8; }
 
 /* ----- Koordinaten-Button in der Liste -------------------- */
 .btn-koordinaten {
