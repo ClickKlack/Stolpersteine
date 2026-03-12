@@ -731,6 +731,76 @@
                                         </template>
                                     </fieldset>
 
+                                    <!-- Raster-Positionsauswahl -->
+                                    <template x-if="verlegeortGrid.n && verlegeortGrid.m">
+                                        <fieldset style="border:1px solid var(--pico-table-border-color); border-radius:var(--pico-border-radius); padding:0.75rem; margin-bottom:var(--pico-spacing);">
+                                            <legend style="font-size:0.85rem; padding:0 0.4rem; color:var(--pico-muted-color);">
+                                                Position im Raster
+                                                <template x-if="form.pos_x && form.pos_y">
+                                                    <span style="color:var(--pico-primary); margin-left:0.4rem;"
+                                                          x-text="'Sp. ' + form.pos_x + ' / Z. ' + form.pos_y"></span>
+                                                </template>
+                                            </legend>
+                                            <div class="raster-picker"
+                                                 :style="'grid-template-columns: repeat(' + verlegeortGrid.n + ', 2rem);'">
+                                                <template x-for="zeile in Array.from({length: verlegeortGrid.m}, (_, i) => i + 1)" :key="'z' + zeile">
+                                                    <template x-for="spalte in Array.from({length: verlegeortGrid.n}, (_, i) => i + 1)" :key="'s' + spalte">
+                                                        <button type="button"
+                                                                class="raster-zelle"
+                                                                :class="{
+                                                                    'raster-ausgewaehlt': form.pos_x == spalte && form.pos_y == zeile,
+                                                                    'raster-belegt':      rasterPositionen.some(p => p.pos_x == spalte && p.pos_y == zeile)
+                                                                }"
+                                                                :title="rasterPositionen.find(p => p.pos_x == spalte && p.pos_y == zeile)?.name || (form.pos_x == spalte && form.pos_y == zeile ? 'Ausgewählt – klicken zum Aufheben' : 'Sp. ' + spalte + ' / Z. ' + zeile)"
+                                                                @click="rasterZelleWaehlen(spalte, zeile)">
+                                                        </button>
+                                                    </template>
+                                                </template>
+                                            </div>
+                                            <p style="font-size:0.75rem; color:var(--pico-muted-color); margin:0.4rem 0 0;">
+                                                Klicken zum Wählen · Erneut klicken hebt Auswahl auf.
+                                                <template x-if="rasterPositionen.length > 0">
+                                                    <span> · <span style="display:inline-block; width:0.7rem; height:0.7rem; background:var(--pico-muted-color); border-radius:2px; vertical-align:middle;"></span> = belegt</span>
+                                                </template>
+                                            </p>
+                                        </fieldset>
+                                    </template>
+
+                                    <!-- Koordinaten-Override -->
+                                    <fieldset style="border:1px solid var(--pico-table-border-color); border-radius:var(--pico-border-radius); padding:0.75rem; margin-bottom:var(--pico-spacing);">
+                                        <legend style="font-size:0.85rem; padding:0 0.4rem; color:var(--pico-muted-color);">
+                                            Koordinaten-Override
+                                            <template x-if="form.lat_override && form.lon_override">
+                                                <span style="color:var(--pico-primary); margin-left:0.4rem;">aktiv</span>
+                                            </template>
+                                        </legend>
+                                        <p style="font-size:0.8rem; color:var(--pico-muted-color); margin:0 0 0.5rem;">Überschreibt die Koordinaten des Verlegeorts für diesen Stein.</p>
+                                        <div class="grid" style="align-items:end;">
+                                            <label style="margin:0;">
+                                                Breitengrad (lat)
+                                                <input type="number" x-model="form.lat_override" step="0.00000001"
+                                                       placeholder="vom Verlegeort" :disabled="saving"
+                                                       @change="updateSteinMapMarker()" style="margin:0;">
+                                            </label>
+                                            <label style="margin:0;">
+                                                Längengrad (lon)
+                                                <input type="number" x-model="form.lon_override" step="0.00000001"
+                                                       placeholder="vom Verlegeort" :disabled="saving"
+                                                       @change="updateSteinMapMarker()" style="margin:0;">
+                                            </label>
+                                            <div style="display:flex; align-items:flex-end; padding-bottom:0.1rem;">
+                                                <button type="button" class="outline btn-delete"
+                                                        :disabled="saving || (!form.lat_override && !form.lon_override)"
+                                                        @click="steinOverrideLoeschen()"
+                                                        style="margin:0; font-size:0.8rem; padding:0.3rem 0.6rem; width:100%;">
+                                                    Override löschen
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div id="map-stein-edit" style="height:220px; margin-top:0.75rem; border-radius:var(--pico-border-radius); overflow:hidden;"></div>
+                                        <p style="font-size:0.8rem; color:var(--pico-muted-color); margin:0.4rem 0 0;">Auf die Karte klicken oder Marker ziehen, um Koordinaten zu setzen.</p>
+                                    </fieldset>
+
                                     <!-- Verlegedatum + Status + Zustand -->
                                     <div class="grid">
                                         <label style="margin:0;">
@@ -1340,6 +1410,25 @@
                                         Historische Bemerkung
                                         <textarea x-model="form.bemerkung_historisch" rows="2" :disabled="saving" placeholder="Frühere Adresse, Umbenennungen …"></textarea>
                                     </label>
+
+                                    <!-- Raster -->
+                                    <fieldset style="border:1px solid var(--pico-table-border-color); border-radius:var(--pico-border-radius); padding:0.75rem; margin-bottom:var(--pico-spacing);">
+                                        <legend style="font-size:0.85rem; padding:0 0.4rem; color:var(--pico-muted-color);">Raster</legend>
+                                        <div class="grid" style="align-items:end;">
+                                            <label style="margin:0;">
+                                                Spalten
+                                                <input type="number" x-model="form.grid_n" min="1" max="10" placeholder="z.B. 3" :disabled="saving" style="margin:0;">
+                                            </label>
+                                            <label style="margin:0;">
+                                                Zeilen
+                                                <input type="number" x-model="form.grid_m" min="1" max="10" placeholder="z.B. 3" :disabled="saving" style="margin:0;">
+                                            </label>
+                                        </div>
+                                        <label style="margin-top:0.5rem;">
+                                            Sonderform-Beschreibung
+                                            <input type="text" x-model="form.raster_beschreibung" :disabled="saving" placeholder="z.B. L-Form, Ecke fehlt oben rechts …" style="margin:0;">
+                                        </label>
+                                    </fieldset>
 
                                     <template x-if="formError">
                                         <p style="color:var(--pico-del-color);" x-text="formError"></p>

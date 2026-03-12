@@ -1,0 +1,18 @@
+meta {
+  name: Stolpersteine – Foto Löschen
+  type: http
+  seq: 4
+}
+
+delete {
+  url: {{baseUrl}}/stolpersteine/{{stolpersteinId}}/foto
+  body: none
+  auth: none
+}
+
+tests {
+  test("Foto gelöscht", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.data.foto_pfad).to.equal(null);
+  });
+}

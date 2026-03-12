@@ -1,0 +1,29 @@
+meta {
+  name: Stolpersteine – Foto Commons-Import
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/stolpersteine/{{stolpersteinId}}/foto/commons-import
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "commons_datei": "Stolperstein_Berlin_Beispiel.jpg"
+  }
+}
+
+tests {
+  test("Import erfolgreich", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.data.foto_pfad).to.be.a("string");
+    expect(res.body.data.wikimedia_commons).to.be.a("string");
+  });
+}

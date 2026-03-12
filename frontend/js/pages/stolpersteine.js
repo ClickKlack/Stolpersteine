@@ -1,3 +1,7 @@
+// Leaflet-Instanz für den Koordinaten-Override-Editor (außerhalb von Alpine)
+let _steinMap    = null;
+let _steinMarker = null;
+
 document.addEventListener('alpine:init', () => {
     Alpine.data('stolpersteinePage', () => ({
 
@@ -36,6 +40,8 @@ document.addEventListener('alpine:init', () => {
             foto_lizenz_name:       '',
             foto_lizenz_url:        '',
             foto_eigenes:           false,
+            pos_x:                  null,
+            pos_y:                  null,
         },
 
         // Anzeige-Objekt für die gewählte Person
@@ -45,6 +51,10 @@ document.addEventListener('alpine:init', () => {
         // Anzeige-Objekt für den gewählten Verlegeort
         verlegeortDisplay: null,  // { id, strasse, hausnummer, stadtteil, plz }
         verlegeortLookup: { query: '', loading: false, ergebnisse: [], offen: false },
+
+        // Raster des gewählten Verlegeorts
+        verlegeortGrid: { n: null, m: null },   // Spalten × Zeilen
+        rasterPositionen: [],                    // [{pos_x, pos_y, vorname, nachname, id}] der anderen Steine
 
         // ----- Foto --------------------------------------------------------
         fotoLaden: false,
@@ -165,10 +175,14 @@ document.addEventListener('alpine:init', () => {
                 wikidata_id_stein: '', osm_id: '', foto_pfad: '',
                 wikimedia_commons: '', wikimedia_commons_eingabe: '',
                 foto_lizenz_autor: '', foto_lizenz_name: '', foto_lizenz_url: '',
-                foto_eigenes: false,
+                foto_eigenes: false, pos_x: null, pos_y: null,
+                lat_override: '', lon_override: '',
             };
-            this.personDisplay    = null;
+            this.personDisplay     = null;
             this.verlegeortDisplay = null;
+            this.verlegeortGrid    = { n: null, m: null };
+            this.rasterPositionen  = [];
+            if (_steinMap) { _steinMap.remove(); _steinMap = null; _steinMarker = null; }
             this._resetPersonLookup();
             this._resetVerlegeortLookup();
             this.modalOpen = true;
@@ -196,7 +210,13 @@ document.addEventListener('alpine:init', () => {
                 foto_lizenz_name:          stein.foto_lizenz_name      ?? '',
                 foto_lizenz_url:           stein.foto_lizenz_url       ?? '',
                 foto_eigenes:              stein.foto_eigenes           == 1,
+                pos_x:                     stein.pos_x                  ?? null,
+                pos_y:                     stein.pos_y                  ?? null,
+                lat_override:              stein.lat_override            ?? '',
+                lon_override:              stein.lon_override            ?? '',
             };
+            this._steinVerlegeortLat = stein.verlegeort_lat ?? null;
+            this._steinVerlegeortLon = stein.verlegeort_lon ?? null;
             this.personDisplay = {
                 id:       stein.person_id,
                 vorname:  stein.vorname  || '',
@@ -208,17 +228,25 @@ document.addEventListener('alpine:init', () => {
                 hausnummer: stein.hausnummer_aktuell || '',
                 stadtteil:  stein.stadtteil          || '',
             };
+            this.verlegeortGrid = {
+                n: stein.grid_n ? parseInt(stein.grid_n) : null,
+                m: stein.grid_m ? parseInt(stein.grid_m) : null,
+            };
+            if (this.verlegeortGrid.n && this.verlegeortGrid.m) {
+                this._rasterPositionenLaden(stein.verlegeort_id, stein.id);
+            }
             this._resetPersonLookup();
             this._resetVerlegeortLookup();
             this.modalOpen = true;
-            // Metadaten laden sobald Commons-Link gesetzt (auch ohne lokales Foto)
-            if (stein.wikimedia_commons) {
-                this.$nextTick(() => this.fotoVergleichen());
-            }
+            this.$nextTick(() => {
+                this.initSteinMap();
+                if (stein.wikimedia_commons) this.fotoVergleichen();
+            });
         },
 
         closeModal() {
             this.modalOpen = false;
+            if (_steinMap) { _steinMap.remove(); _steinMap = null; _steinMarker = null; }
         },
 
         // ----- Person-Lookup -----------------------------------------------
@@ -282,6 +310,8 @@ document.addEventListener('alpine:init', () => {
 
         verlegeortWaehlen(ort) {
             this.form.verlegeort_id  = ort.id;
+            this.form.pos_x          = null;
+            this.form.pos_y          = null;
             this.verlegeortDisplay   = {
                 id:         ort.id,
                 strasse:    ort.strasse_aktuell    || '',
@@ -289,14 +319,55 @@ document.addEventListener('alpine:init', () => {
                 stadtteil:  ort.stadtteil          || '',
                 plz:        ort.plz_aktuell        || '',
             };
+            this.verlegeortGrid = {
+                n: ort.grid_n ? parseInt(ort.grid_n) : null,
+                m: ort.grid_m ? parseInt(ort.grid_m) : null,
+            };
+            if (this.verlegeortGrid.n && this.verlegeortGrid.m) {
+                this._rasterPositionenLaden(ort.id, this.editId);
+            } else {
+                this.rasterPositionen = [];
+            }
             this._resetVerlegeortLookup();
         },
 
         verlegeortZuruecksetzen() {
             this.form.verlegeort_id = null;
+            this.form.pos_x         = null;
+            this.form.pos_y         = null;
             this.verlegeortDisplay  = null;
+            this.verlegeortGrid     = { n: null, m: null };
+            this.rasterPositionen   = [];
             this._resetVerlegeortLookup();
             this.$nextTick(() => document.getElementById('st-ort-lookup')?.focus());
+        },
+
+        // ----- Raster-Positionen laden -------------------------------------
+        async _rasterPositionenLaden(verlegeortId, ausgeschlossenId) {
+            try {
+                const steine = await api.get('/stolpersteine?verlegeort_id=' + verlegeortId);
+                this.rasterPositionen = steine
+                    .filter(s => s.id !== ausgeschlossenId && s.pos_x != null && s.pos_y != null)
+                    .map(s => ({
+                        id:       s.id,
+                        pos_x:    parseInt(s.pos_x),
+                        pos_y:    parseInt(s.pos_y),
+                        name:     [s.vorname, s.nachname].filter(Boolean).join(' '),
+                    }));
+            } catch {
+                this.rasterPositionen = [];
+            }
+        },
+
+        rasterZelleWaehlen(x, y) {
+            // Zweites Klicken auf dieselbe Zelle hebt Auswahl auf
+            if (this.form.pos_x === x && this.form.pos_y === y) {
+                this.form.pos_x = null;
+                this.form.pos_y = null;
+            } else {
+                this.form.pos_x = x;
+                this.form.pos_y = y;
+            }
         },
 
         // ----- Speichern ---------------------------------------------------
@@ -324,6 +395,10 @@ document.addEventListener('alpine:init', () => {
                     foto_pfad:         this.form.foto_pfad          || null,
                     wikimedia_commons: this.form.wikimedia_commons  || null,
                     foto_eigenes:      this.form.foto_eigenes        ? 1 : 0,
+                    pos_x:             this.form.pos_x != null       ? parseInt(this.form.pos_x) : null,
+                    pos_y:             this.form.pos_y != null       ? parseInt(this.form.pos_y) : null,
+                    lat_override:      this.form.lat_override !== ''  ? parseFloat(this.form.lat_override) : null,
+                    lon_override:      this.form.lon_override !== ''  ? parseFloat(this.form.lon_override) : null,
                 };
                 if (this.modalMode === 'create') {
                     const neu = await api.post('/stolpersteine', payload);
@@ -544,6 +619,83 @@ document.addEventListener('alpine:init', () => {
 
         zustandLabel(z) {
             return { verfuegbar: 'Verfügbar', beschaedigt: 'Beschädigt', gestohlen: 'Gestohlen', ersetzt: 'Ersetzt' }[z] || z;
+        },
+
+        // ----- Koordinaten-Override Karte ----------------------------------
+        initSteinMap() {
+            if (_steinMap) { _steinMap.remove(); _steinMap = null; _steinMarker = null; }
+            const el = document.getElementById('map-stein-edit');
+            if (!el) return;
+
+            const hasOverride = this.form.lat_override !== '' && this.form.lon_override !== '';
+            let lat, lon, zoom;
+            if (hasOverride) {
+                lat  = parseFloat(this.form.lat_override);
+                lon  = parseFloat(this.form.lon_override);
+                zoom = 18;
+            } else if (this._steinVerlegeortLat && this._steinVerlegeortLon) {
+                lat  = parseFloat(this._steinVerlegeortLat);
+                lon  = parseFloat(this._steinVerlegeortLon);
+                zoom = 18;
+            } else {
+                const cfg = Alpine.store('config');
+                lat  = cfg.map_lat  ?? 51.5;
+                lon  = cfg.map_lon  ?? 10.0;
+                zoom = 13;
+            }
+
+            _steinMap = L.map('map-stein-edit').setView([lat, lon], zoom);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            }).addTo(_steinMap);
+
+            if (hasOverride) {
+                _steinMarker = L.marker([lat, lon], { draggable: true }).addTo(_steinMap);
+                _steinMarker.on('dragend', (e) => {
+                    const pos = e.target.getLatLng();
+                    this.form.lat_override = pos.lat.toFixed(8);
+                    this.form.lon_override = pos.lng.toFixed(8);
+                });
+            }
+
+            _steinMap.on('click', (e) => {
+                this.form.lat_override = e.latlng.lat.toFixed(8);
+                this.form.lon_override = e.latlng.lng.toFixed(8);
+                if (_steinMarker) {
+                    _steinMarker.setLatLng(e.latlng);
+                } else {
+                    _steinMarker = L.marker(e.latlng, { draggable: true }).addTo(_steinMap);
+                    _steinMarker.on('dragend', (ev) => {
+                        const pos = ev.target.getLatLng();
+                        this.form.lat_override = pos.lat.toFixed(8);
+                        this.form.lon_override = pos.lng.toFixed(8);
+                    });
+                }
+            });
+        },
+
+        updateSteinMapMarker() {
+            if (!_steinMap) return;
+            const lat = parseFloat(this.form.lat_override);
+            const lon = parseFloat(this.form.lon_override);
+            if (isNaN(lat) || isNaN(lon)) return;
+            if (_steinMarker) {
+                _steinMarker.setLatLng([lat, lon]);
+            } else {
+                _steinMarker = L.marker([lat, lon], { draggable: true }).addTo(_steinMap);
+                _steinMarker.on('dragend', (e) => {
+                    const pos = e.target.getLatLng();
+                    this.form.lat_override = pos.lat.toFixed(8);
+                    this.form.lon_override = pos.lng.toFixed(8);
+                });
+            }
+            _steinMap.setView([lat, lon], 18);
+        },
+
+        steinOverrideLoeschen() {
+            this.form.lat_override = '';
+            this.form.lon_override = '';
+            if (_steinMarker) { _steinMarker.remove(); _steinMarker = null; }
         },
     }));
 });

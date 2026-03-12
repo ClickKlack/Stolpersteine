@@ -16,12 +16,14 @@ headers {
 
 body:json {
   {
-    "strasse_aktuell": "Hegelstraße",
+    "adress_lokation_id": {{adressLokationId}},
     "hausnummer_aktuell": "42",
-    "stadtteil": "Altstadt",
-    "plz_aktuell": "39104",
+    "beschreibung": "Vor dem Eingang links",
     "lat": 52.12345678,
-    "lon": 11.12345678
+    "lon": 11.12345678,
+    "grid_n": 3,
+    "grid_m": 2,
+    "raster_beschreibung": null
   }
 }
 
@@ -34,6 +36,6 @@ script:post-response {
 tests {
   test("Verlegeort erstellt", function() {
     expect(res.status).to.equal(201);
-    expect(res.body.data.strasse_aktuell).to.equal("Hegelstraße");
+    expect(res.body.data.id).to.be.a("number");
   });
 }

@@ -22,12 +22,15 @@ document.addEventListener('alpine:init', () => {
         editId: null,
 
         form: {
-            adress_lokation_id: null,
-            hausnummer_aktuell:  '',
-            beschreibung:        '',
-            lat:                 '',
-            lon:                 '',
+            adress_lokation_id:   null,
+            hausnummer_aktuell:   '',
+            beschreibung:         '',
+            lat:                  '',
+            lon:                  '',
             bemerkung_historisch: '',
+            grid_n:               '',
+            grid_m:               '',
+            raster_beschreibung:  '',
         },
 
         // Anzeige-Objekt für die gewählte Adresse
@@ -105,6 +108,9 @@ document.addEventListener('alpine:init', () => {
                 lat:                  '',
                 lon:                  '',
                 bemerkung_historisch: '',
+                grid_n:               '',
+                grid_m:               '',
+                raster_beschreibung:  '',
             };
             this.adresse = null;
             this._resetLookup();
@@ -132,12 +138,15 @@ document.addEventListener('alpine:init', () => {
             this.modalMode = 'edit';
             this.editId    = ort.id;
             this.form = {
-                adress_lokation_id:   ort.adress_lokation_id ?? null,
-                hausnummer_aktuell:   ort.hausnummer_aktuell  ?? '',
-                beschreibung:         ort.beschreibung        ?? '',
-                lat:                  ort.lat                 ?? '',
-                lon:                  ort.lon                 ?? '',
+                adress_lokation_id:   ort.adress_lokation_id  ?? null,
+                hausnummer_aktuell:   ort.hausnummer_aktuell   ?? '',
+                beschreibung:         ort.beschreibung         ?? '',
+                lat:                  ort.lat                  ?? '',
+                lon:                  ort.lon                  ?? '',
                 bemerkung_historisch: ort.bemerkung_historisch ?? '',
+                grid_n:               ort.grid_n               ?? '',
+                grid_m:               ort.grid_m               ?? '',
+                raster_beschreibung:  ort.raster_beschreibung  ?? '',
             };
             // Adress-Anzeige aus den JOIN-Feldern des Listeneintrags befüllen
             if (ort.adress_lokation_id) {
@@ -284,12 +293,15 @@ document.addEventListener('alpine:init', () => {
             this.formError = null;
             try {
                 const payload = {
-                    adress_lokation_id:   this.form.adress_lokation_id || null,
-                    hausnummer_aktuell:   this.form.hausnummer_aktuell  || null,
-                    beschreibung:         this.form.beschreibung        || null,
+                    adress_lokation_id:   this.form.adress_lokation_id  || null,
+                    hausnummer_aktuell:   this.form.hausnummer_aktuell   || null,
+                    beschreibung:         this.form.beschreibung         || null,
                     lat:                  this.form.lat !== '' ? parseFloat(this.form.lat) : null,
                     lon:                  this.form.lon !== '' ? parseFloat(this.form.lon) : null,
                     bemerkung_historisch: this.form.bemerkung_historisch || null,
+                    grid_n:               this.form.grid_n !== '' ? parseInt(this.form.grid_n) : null,
+                    grid_m:               this.form.grid_m !== '' ? parseInt(this.form.grid_m) : null,
+                    raster_beschreibung:  this.form.raster_beschreibung  || null,
                 };
 
                 if (this.modalMode === 'create') {

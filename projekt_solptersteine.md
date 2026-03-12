@@ -64,6 +64,11 @@ Die API-Antworten liefern diese Felder als JOIN-Aliase (`strasse_aktuell`, `plz_
 - `pos_y` INT (Zeile, 1-basiert)
 - ~~`geo_override` POINT~~ → ersetzt durch `lat_override` DECIMAL(10,8) / `lon_override` DECIMAL(11,8)
 - `foto_pfad` VARCHAR(255)
+- `foto_eigenes` TINYINT(1) (1 = eigenes Foto, 0 = fremdes)
+- `foto_lizenz_autor` VARCHAR(255)
+- `foto_lizenz_name` VARCHAR(100)
+- `foto_lizenz_url` VARCHAR(255)
+- `wikimedia_commons` VARCHAR(255) (Dateiname, z. B. `Stolperstein_Berlin.jpg`)
 - `wikidata_id_stein` VARCHAR(50)
 - `osm_id` BIGINT
 - `status` ENUM('neu', 'validierung', 'freigegeben', 'archiviert', 'fehlerhaft', 'abgleich_wikipedia', 'abgleich_osm', 'abgleich_wikidata')
@@ -132,7 +137,9 @@ Stolpersteine/
 │   │   │   ├── VerlegeorteHandler.php
 │   │   │   ├── StolpersteineHandler.php
 │   │   │   ├── DokumenteHandler.php
-│   │   │   ├── AdressenHandler.php   # GET /adressen/strassen, POST /adressen/lokationen
+│   │   │   ├── AdressenHandler.php   # GET /adressen/strassen|stadtteile, POST /adressen/lokationen
+│   │   │   ├── FotoHandler.php       # Upload, Commons-Import, Löschen, Vergleich
+│   │   │   ├── KonfigurationHandler.php  # GET /konfiguration
 │   │   │   ├── SucheHandler.php
 │   │   │   ├── ImportHandler.php     # POST /api/import/analyze|preview|execute
 │   │   │   └── ExportHandler.php     # (Phase 5, noch nicht implementiert)
@@ -167,10 +174,11 @@ Stolpersteine/
 │       ├── api.js           # fetch-Client (get/post/put/delete/upload)
 │       ├── app.js           # Stores (auth, notify, router) + Haupt-Komponente
 │       └── pages/
-│           ├── login.js        # Login-Formular
-│           ├── dashboard.js    # Übersichts-Statistiken
-│           ├── personen.js     # Personen-CRUD (Liste, Filter, Modal, Löschen)
-│           └── verlegeorte.js  # Verlegeorte-CRUD + Adress-Lookup-Widget
+│           ├── login.js         # Login-Formular
+│           ├── dashboard.js     # Übersichts-Statistiken
+│           ├── personen.js      # Personen-CRUD (Liste, Filter, Modal, Löschen)
+│           ├── verlegeorte.js   # Verlegeorte-CRUD + Adress-Lookup + Karte + Grid-Konfig
+│           └── stolpersteine.js # Stolpersteine-CRUD + Grid-Picker + Foto + Karte
 │
 ├── bruno/                   # Bruno API-Collection (versioniert)
 │   ├── bruno.json
@@ -180,6 +188,7 @@ Stolpersteine/
 │   ├── personen/
 │   ├── verlegeorte/
 │   ├── stolpersteine/
+│   │   └── foto/            # Upload, Commons-Import, Löschen, Vergleich
 │   ├── dokumente/
 │   ├── suche/
 │   └── import/
@@ -197,7 +206,7 @@ Stolpersteine/
 
 ### 3.1 Einfache Filter
 - Personen: Nachname, Geburtsname, Geburtsjahr
-- Steine: Status, Zustand, Verlegedatum, Ort, ohne_wikidata
+- Steine: Status, Zustand, Verlegedatum, Ort, Verlegeort, Foto-Status, ohne_wikidata
 - Orte: Stadtteil, Straße, PLZ
 
 Beispiele:
@@ -275,7 +284,7 @@ Ergebnisse werden in `validierungen` gespeichert.
 ### 6.1 Schichtenmodell
 - **Repository-Schicht**: Datenzugriff (PDO, prepared statements)
 - **Service-Schicht**: Import, Sync, Export, Suche
-- **REST-API**: `/api/personen`, `/api/stolpersteine`, `/api/verlegeorte`, `/api/dokumente`, `/api/suche`, `/api/export`
+- **REST-API**: `/api/personen`, `/api/stolpersteine`, `/api/verlegeorte`, `/api/dokumente`, `/api/suche`, `/api/export`, `/api/konfiguration`
 - **Frontend**: nutzt ausschließlich REST-API
 
 ### 6.2 Dateisystem statt BLOB
@@ -360,7 +369,7 @@ Ergebnisse werden in `validierungen` gespeichert.
 - Speicherung der Ergebnisse in `validierungen`
 - Wikipedia-Diff (seitenweises Einlesen, feldweiser Vergleich)
 
-### 🔄 Phase 7: Frontend
+### ✅ Phase 7: Frontend
 - **Alpine.js** (kein Build-Schritt, CDN), **Pico CSS** für Basis-Styling
 - Hash-basiertes Routing via `Alpine.store('router')`
 - `js/api.js` als zentraler HTTP-Client (fetch-basiert, Cookie-Auth)
@@ -371,12 +380,23 @@ Implementiert:
 - ✅ Login-Seite + Session-Handling
 - ✅ Dashboard mit Statistiken
 - ✅ Personen-Verwaltung (Liste, Filter, Modal Anlegen/Bearbeiten, Lösch-Bestätigung)
-- ✅ Verlegeorte-Verwaltung mit normalisierter Adress-Eingabe:
-  - Autocomplete-Lookup (`GET /adressen/strassen`)
+- ✅ Verlegeorte-Verwaltung:
+  - Normalisierte Adress-Eingabe mit Autocomplete-Lookup
   - Inline-Formular „Neue Adresse" (`POST /adressen/lokationen`)
-  - Anzeige gewählter Adresse mit Wikidata-Buttons je Straße / Stadtteil / Stadt
+  - Anzeige gewählter Adresse mit Wikidata-Buttons
+  - Leaflet-Karte zur Koordinateneingabe
+  - Grid-Konfiguration (Rasterbreite/-höhe + Beschreibung)
+- ✅ Stolpersteine-Verwaltung:
+  - Personen-Lookup mit `Vorname Nachname (geb. Geburtsname)` + Geburtsdatum
+  - Verlegeort-Lookup mit Beschreibung
+  - Visueller Grid-Picker mit Anzeige belegter Positionen
+  - Foto-Upload (lokal) und Wikimedia-Commons-Import
+  - SHA1-Vergleich lokal ↔ Commons mit Lizenzanzeige
+  - Koordinaten-Overrides (lat/lon) mit Leaflet-Karte
+  - Einfüge-Handler: entfernt umschließende Anführungszeichen in Inschrift-Feld
+- ✅ Klickbare Tabellenzeilen in allen Listen (Klick = Bearbeiten, dezenter Hover-Effekt)
 
-Ausstehend: Stolpersteine, Dokumente, Suche, Import, Export, Benutzerverwaltung
+Ausstehend: Dokumente, Suche, Import, Export, Benutzerverwaltung
 
 ### Phase 8: Feinschliff & Erweiterungen
 - Optimierungen

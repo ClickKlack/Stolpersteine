@@ -262,6 +262,41 @@ nav ul.nav-links li a.active {
     border-color: #339966;
 }
 
+/* ----- Raster-Picker -------------------------------------- */
+.raster-picker {
+    display: inline-grid;
+    gap: 3px;
+}
+.raster-zelle {
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    margin: 0;
+    border: 1px solid var(--pico-table-border-color);
+    border-radius: 3px;
+    background: var(--pico-card-background-color);
+    cursor: pointer;
+    transition: background 0.1s, border-color 0.1s;
+}
+.raster-zelle:hover {
+    border-color: var(--pico-primary);
+    background: color-mix(in srgb, var(--pico-primary) 12%, transparent);
+}
+.raster-zelle.raster-ausgewaehlt {
+    background: var(--pico-primary);
+    border-color: var(--pico-primary);
+}
+.raster-zelle.raster-belegt {
+    background: var(--pico-muted-color);
+    border-color: var(--pico-muted-color);
+    opacity: 0.55;
+    cursor: default;
+}
+.raster-zelle.raster-belegt:hover {
+    background: var(--pico-muted-color);
+    border-color: var(--pico-muted-color);
+}
+
 /* ----- Klickbare Tabellenzeilen --------------------------- */
 tr.tr-clickable {
     cursor: pointer;

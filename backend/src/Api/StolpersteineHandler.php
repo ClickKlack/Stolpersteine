@@ -31,6 +31,7 @@ class StolpersteineHandler extends BaseHandler
             'stadtteil'      => $this->queryParam('stadtteil'),
             'strasse'        => $this->queryParam('strasse'),
             'person_id'      => $this->queryParam('person_id'),
+            'verlegeort_id'  => $this->queryParam('verlegeort_id'),
             'ohne_wikidata'  => $this->queryParam('ohne_wikidata'),
             'foto_status'    => $this->queryParam('foto_status'),
         ]);

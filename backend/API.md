@@ -299,6 +299,19 @@ Straßen nach Name suchen (mindestens 2 Zeichen). Erfordert Login.
 
 ---
 
+### `GET /api/adressen/stadtteile?q=`
+Stadtteile nach Name suchen. Erfordert Login.
+
+**Query-Parameter:**
+
+| Parameter | Beschreibung |
+|---|---|
+| `q` | Suchbegriff, Teilsuche (LIKE), min. 2 Zeichen |
+
+**Antwort `200`:** Array von Stadtteil-Namen (Strings)
+
+---
+
 ### `POST /api/adressen/lokationen`
 Adresslokation auflösen oder anlegen (find-or-create). Erfordert Login.
 
@@ -360,6 +373,8 @@ Liste aller Stolpersteine. Optional filterbar.
 | `strasse` | Teilsuche (LIKE) |
 | `person_id` | Exakt |
 | `ohne_wikidata` | `1` = nur Steine ohne Wikidata-ID |
+| `verlegeort_id` | Exakt – nur Steine an diesem Verlegeort |
+| `foto_status` | `ohne_foto`, `ohne_commons`, `foto_ohne_commons` |
 
 **Antwort `200`:**
 ```json
@@ -380,6 +395,21 @@ Liste aller Stolpersteine. Optional filterbar.
       "zustand": "verfuegbar",
       "wikidata_id_stein": null,
       "osm_id": null,
+      "inschrift": "HIER WOHNTE ...",
+      "foto_pfad": null,
+      "wikimedia_commons": null,
+      "foto_lizenz_autor": null,
+      "foto_lizenz_name": null,
+      "foto_lizenz_url": null,
+      "foto_eigenes": 0,
+      "pos_x": null,
+      "pos_y": null,
+      "grid_n": null,
+      "grid_m": null,
+      "lat_override": null,
+      "lon_override": null,
+      "verlegeort_lat": 52.12345678,
+      "verlegeort_lon": 11.12345678,
       "erstellt_am": "2025-01-01 10:00:00",
       "geaendert_am": "2025-01-01 10:00:00"
     }
@@ -468,6 +498,98 @@ Stolperstein aktualisieren. Erfordert Login.
 
 ### `DELETE /api/stolpersteine/{id}`
 Stolperstein löschen. Erfordert **Admin**.
+
+**Antwort:** `204 No Content`
+
+---
+
+## Fotos
+
+### `GET /api/stolpersteine/{id}/foto/vergleich`
+Vergleicht lokales Foto und Commons-Foto per SHA1-Hash. Gibt immer Commons-Metadaten zurück, auch ohne lokales Foto. Erfordert Login.
+
+**Voraussetzung:** `wikimedia_commons` muss am Stolperstein gesetzt sein.
+
+**Antwort `200`:**
+```json
+{
+  "success": true,
+  "data": {
+    "identisch": true,
+    "hash_lokal": "a1b2c3d4e5f6...",
+    "hash_commons": "a1b2c3d4e5f6...",
+    "commons_autor": "Max Mustermann",
+    "commons_lizenz": "CC BY-SA 4.0",
+    "commons_lizenz_url": "https://creativecommons.org/licenses/by-sa/4.0/"
+  }
+}
+```
+
+> `identisch` ist `null` wenn kein lokales Foto vorhanden (nur Commons-Metadaten).
+> `hash_lokal` ist `null` wenn keine lokale Datei gefunden.
+
+**Fehler:**
+- `422` – kein Commons-Link gesetzt
+- `404` – Commons-Datei nicht gefunden
+- `502` – Wikimedia Commons API nicht erreichbar
+
+---
+
+### `POST /api/stolpersteine/{id}/foto/upload`
+Lädt ein Foto für einen Stolperstein hoch. Erfordert Login.
+
+**Request (multipart/form-data):**
+
+| Feld | Beschreibung |
+|---|---|
+| `foto` | Bilddatei (JPEG, PNG, WEBP, TIFF; max. 20 MB) |
+| `foto_eigenes` | `1` = eigenes Foto (kein Lizenzhinweis nötig), `0` = Fremdmaterial |
+
+**Antwort `200`:**
+```json
+{
+  "success": true,
+  "data": {
+    "foto_pfad": "2025/01/abc12345.jpg",
+    "foto_lizenz_autor": null,
+    "foto_lizenz_name": null,
+    "foto_lizenz_url": null
+  }
+}
+```
+
+**Fehler:** `422` – keine Datei übermittelt, `400` – ungültiger Dateityp
+
+---
+
+### `POST /api/stolpersteine/{id}/foto/commons-import`
+Lädt ein Bild von Wikimedia Commons herunter und speichert es lokal. Lizenzmetadaten werden automatisch von der Commons-API übernommen. Erfordert **Admin**.
+
+**Body (JSON):**
+```json
+{ "commons_datei": "Stolperstein_Anna_Schmidt.jpg" }
+```
+
+**Antwort `200`:**
+```json
+{
+  "success": true,
+  "data": {
+    "foto_pfad": "2025/01/abc12345.jpg",
+    "wikimedia_commons": "Stolperstein_Anna_Schmidt.jpg",
+    "foto_lizenz_autor": "Max Mustermann",
+    "foto_lizenz_name": "CC BY-SA 4.0",
+    "foto_lizenz_url": "https://creativecommons.org/licenses/by-sa/4.0/"
+  }
+}
+```
+
+**Fehler:** `422` – `commons_datei` fehlt, `404` – Datei nicht auf Commons, `502` – Download fehlgeschlagen
+
+---
+
+### `DELETE /api/stolpersteine/{id}/foto`
+Löscht das lokale Foto eines Stolpersteins (Datei + DB-Felder). Erfordert Login.
 
 **Antwort:** `204 No Content`
 
@@ -752,6 +874,26 @@ Führt den Import in einer DB-Transaktion durch. Erfordert Login.
 ```
 
 Bei einem Datenbankfehler wird die gesamte Transaktion zurückgerollt. Fehlerzeilen werden übersprungen (kein Rollback). Nach dem Import wird der Suchindex für jeden neuen Stein automatisch aufgebaut.
+
+---
+
+## Konfiguration
+
+### `GET /api/konfiguration`
+Gibt öffentlich zugängliche Konfigurationswerte zurück (kein Login erforderlich).
+
+**Antwort `200`:**
+```json
+{
+  "success": true,
+  "data": {
+    "stadt_name": "Magdeburg",
+    "wikidata_city_id": "Q1733",
+    "map_lat": 52.1317,
+    "map_lon": 11.6292
+  }
+}
+```
 
 ---
 

@@ -70,11 +70,13 @@ Vollständige Dokumentation aller Endpunkte: [backend/API.md](backend/API.md)
 | Auth | `POST /auth/login`, `POST /auth/logout`, `GET /auth/me` |
 | Personen | `GET/POST /personen`, `GET/PUT/DELETE /personen/{id}` |
 | Verlegeorte | `GET/POST /verlegeorte`, `GET/PUT/DELETE /verlegeorte/{id}` |
-| Adressen | `GET /adressen/strassen`, `POST /adressen/lokationen` |
+| Adressen | `GET /adressen/strassen`, `GET /adressen/stadtteile`, `POST /adressen/lokationen` |
 | Stolpersteine | `GET/POST /stolpersteine`, `GET/PUT/DELETE /stolpersteine/{id}` |
+| Fotos | `POST /stolpersteine/{id}/foto/upload`, `POST /stolpersteine/{id}/foto/commons-import`, `DELETE /stolpersteine/{id}/foto`, `GET /stolpersteine/{id}/foto/vergleich` |
 | Dokumente | `GET/POST /dokumente`, `GET/DELETE /dokumente/{id}` |
 | Suche | `GET /suche` |
 | Import | `POST /import/analyze`, `POST /import/preview`, `POST /import/execute` |
+| Konfiguration | `GET /konfiguration` |
 
 ---
 
@@ -132,4 +134,4 @@ Siehe [projekt_solptersteine.md](projekt_solptersteine.md) für die vollständig
 - ✅ Phase 4 – Excel/CSV-Import
 - ⬜ Phase 5 – Templates & Exporte
 - ⬜ Phase 6 – Externe Validierung (Wikidata/OSM)
-- 🔄 Phase 7 – Frontend (Personen ✅, Verlegeorte ✅, Adress-Normalisierung ✅)
+- 🔄 Phase 7 – Frontend (Personen ✅, Verlegeorte ✅, Stolpersteine ✅, Adress-Normalisierung ✅, Grid-Positionierung ✅, Foto-Verwaltung ✅, Koordinaten-Overrides ✅)

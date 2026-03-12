@@ -46,6 +46,11 @@ class StolpersteinRepository
             $params[] = (int) $filter['person_id'];
         }
 
+        if (!empty($filter['verlegeort_id'])) {
+            $where[]  = 's.verlegeort_id = ?';
+            $params[] = (int) $filter['verlegeort_id'];
+        }
+
         if (!empty($filter['ohne_wikidata'])) {
             $where[] = 's.wikidata_id_stein IS NULL';
         }
@@ -69,6 +74,10 @@ class StolpersteinRepository
                        s.foto_pfad, s.wikimedia_commons,
                        s.foto_lizenz_autor, s.foto_lizenz_name, s.foto_lizenz_url,
                        s.foto_eigenes,
+                       s.pos_x, s.pos_y,
+                       v.grid_n, v.grid_m,
+                       s.lat_override, s.lon_override,
+                       v.lat AS verlegeort_lat, v.lon AS verlegeort_lon,
                        s.erstellt_am, s.geaendert_am
                 FROM stolpersteine s
                 JOIN personen     p   ON p.id  = s.person_id

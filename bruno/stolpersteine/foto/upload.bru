@@ -1,0 +1,23 @@
+meta {
+  name: Stolpersteine – Foto Upload
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/stolpersteine/{{stolpersteinId}}/foto/upload
+  body: multipart-form
+  auth: none
+}
+
+body:multipart-form {
+  foto: @file(/pfad/zur/datei.jpg)
+  foto_eigenes: 1
+}
+
+tests {
+  test("Foto hochgeladen", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.data.foto_pfad).to.be.a("string");
+  });
+}
