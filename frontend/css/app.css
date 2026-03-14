@@ -516,6 +516,24 @@ tr.tr-clickable:hover td {
     font-size: 0.875rem;
 }
 
+/* ----- Modal-Overlay -------------------------------------- */
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 900;
+    padding: 1rem;
+}
+
+.modal-dialog {
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
 /* ----- Placeholder für zukünftige Seiten ------------------ */
 .page-placeholder {
     padding: 3rem 0;

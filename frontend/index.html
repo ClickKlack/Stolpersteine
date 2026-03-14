@@ -2026,6 +2026,10 @@
                         <!-- -------------------------------------------------- -->
                         <template x-if="!loading && sub === 'stadtteile'">
                             <div>
+                                <div style="margin-bottom:1rem; max-width:320px;">
+                                    <input type="search" placeholder="Stadtteil suchen …"
+                                           x-model="searchStadtteil" style="margin:0;">
+                                </div>
                                 <div class="table-responsive">
                                     <table>
                                         <thead>
@@ -2039,7 +2043,7 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            <template x-for="st in stadtteile" :key="st.id">
+                                            <template x-for="st in filteredStadtteile" :key="st.id">
                                                 <tr class="tr-clickable" @click="openEdit(st)">
                                                     <td x-text="st.id"></td>
                                                     <td x-text="st.name"></td>
@@ -2074,6 +2078,10 @@
                         <!-- -------------------------------------------------- -->
                         <template x-if="!loading && sub === 'strassen'">
                             <div>
+                                <div style="margin-bottom:1rem; max-width:320px;">
+                                    <input type="search" placeholder="Straße suchen …"
+                                           x-model="searchStrasse" style="margin:0;">
+                                </div>
                                 <div class="table-responsive">
                                     <table>
                                         <thead>
@@ -2087,7 +2095,7 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            <template x-for="s in strassen" :key="s.id">
+                                            <template x-for="s in filteredStrassen" :key="s.id">
                                                 <tr class="tr-clickable" @click="openEdit(s)">
                                                     <td x-text="s.id"></td>
                                                     <td x-text="s.name"></td>
@@ -2122,6 +2130,10 @@
                         <!-- -------------------------------------------------- -->
                         <template x-if="!loading && sub === 'plz'">
                             <div>
+                                <div style="margin-bottom:1rem; max-width:320px;">
+                                    <input type="search" placeholder="PLZ suchen …"
+                                           x-model="searchPlz" style="margin:0;">
+                                </div>
                                 <div class="table-responsive">
                                     <table>
                                         <thead>
@@ -2134,7 +2146,7 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            <template x-for="p in plzListe" :key="p.id">
+                                            <template x-for="p in filteredPlzListe" :key="p.id">
                                                 <tr class="tr-clickable" @click="openEdit(p)">
                                                     <td x-text="p.id"></td>
                                                     <td x-text="p.plz"></td>
@@ -2197,6 +2209,10 @@
                                                     <option :value="sta.id" x-text="sta.name"></option>
                                                 </template>
                                             </select>
+                                        </label>
+                                        <label>Wikipedia-Artikelname
+                                            <input type="text" x-model="editObj.wikipedia_name"
+                                                   placeholder="z. B. Stolpersteine in Magdeburg-Altstadt">
                                         </label>
                                         <label>Wikidata-ID
                                             <div style="display:flex; gap:0.5rem;">

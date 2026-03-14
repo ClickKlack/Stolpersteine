@@ -20,6 +20,24 @@ document.addEventListener('alpine:init', () => {
         filterStrasseId:   '',
         filterPlzId:       '',
 
+        // Suchfelder
+        searchStadtteil: '',
+        searchStrasse:   '',
+        searchPlz:       '',
+
+        get filteredStadtteile() {
+            const q = this.searchStadtteil.toLowerCase();
+            return q ? this.stadtteile.filter(st => st.name.toLowerCase().includes(q) || (st.stadt_name || '').toLowerCase().includes(q)) : this.stadtteile;
+        },
+        get filteredStrassen() {
+            const q = this.searchStrasse.toLowerCase();
+            return q ? this.strassen.filter(s => s.name.toLowerCase().includes(q) || (s.stadt_name || '').toLowerCase().includes(q)) : this.strassen;
+        },
+        get filteredPlzListe() {
+            const q = this.searchPlz.toLowerCase();
+            return q ? this.plzListe.filter(p => p.plz.toLowerCase().includes(q) || (p.stadt_name || '').toLowerCase().includes(q)) : this.plzListe;
+        },
+
         // Modal: 'edit' | 'delete' | null
         modal: null,
         modalFehler: null,
@@ -106,7 +124,7 @@ document.addEventListener('alpine:init', () => {
             this.modalFehler = null;
             const defaults = {
                 staedte:    { name: '', wikidata_id: '' },
-                stadtteile: { name: '', stadt_id: this.staedte[0]?.id ?? '', wikidata_id: '' },
+                stadtteile: { name: '', stadt_id: this.staedte[0]?.id ?? '', wikidata_id: '', wikipedia_name: '' },
                 strassen:   { name: '', stadt_id: this.staedte[0]?.id ?? '', wikidata_id: '', wikipedia_name: '' },
                 plz:        { plz: '',  stadt_id: this.staedte[0]?.id ?? '' },
                 lokationen: { strasse_id: '', stadtteil_id: '', plz_id: '' },
@@ -132,7 +150,7 @@ document.addEventListener('alpine:init', () => {
             try {
                 const bodies = {
                     staedte:    { name: this.editObj.name,  wikidata_id: this.editObj.wikidata_id || null },
-                    stadtteile: { name: this.editObj.name,  stadt_id: this.editObj.stadt_id, wikidata_id: this.editObj.wikidata_id || null },
+                    stadtteile: { name: this.editObj.name,  stadt_id: this.editObj.stadt_id, wikidata_id: this.editObj.wikidata_id || null, wikipedia_name: this.editObj.wikipedia_name || null },
                     strassen:   { name: this.editObj.name,  stadt_id: this.editObj.stadt_id, wikidata_id: this.editObj.wikidata_id || null, wikipedia_name: this.editObj.wikipedia_name || null },
                     plz:        { plz:  this.editObj.plz,   stadt_id: this.editObj.stadt_id },
                     lokationen: { strasse_id: this.editObj.strasse_id, stadtteil_id: this.editObj.stadtteil_id || null, plz_id: this.editObj.plz_id || null },
