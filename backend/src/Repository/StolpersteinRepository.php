@@ -51,6 +51,14 @@ class StolpersteinRepository
             $params[] = (int) $filter['verlegeort_id'];
         }
 
+        if (!empty($filter['name'])) {
+            $term     = '%' . $filter['name'] . '%';
+            $where[]  = '(p.vorname LIKE ? OR p.nachname LIKE ? OR p.geburtsname LIKE ?)';
+            $params[] = $term;
+            $params[] = $term;
+            $params[] = $term;
+        }
+
         if (!empty($filter['ohne_wikidata'])) {
             $where[] = 's.wikidata_id_stein IS NULL';
         }

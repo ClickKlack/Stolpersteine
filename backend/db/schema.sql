@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS personen (
     sterbedatum                 DATE,
     sterbedatum_genauigkeit     ENUM('tag', 'monat', 'jahr'),
     biografie_kurz      TEXT,
+    wikipedia_name      VARCHAR(255),
     wikidata_id_person  VARCHAR(50),
     erstellt_am         DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     erstellt_von        VARCHAR(100)    NOT NULL,
@@ -85,6 +86,7 @@ CREATE TABLE IF NOT EXISTS staedte (
     name            VARCHAR(255)    NOT NULL,
     wikidata_id     VARCHAR(50),
     PRIMARY KEY (id),
+    UNIQUE KEY uq_stadt_name (name),
     INDEX idx_name (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -95,6 +97,7 @@ CREATE TABLE IF NOT EXISTS stadtteile (
     stadt_id        INT             NOT NULL,
     PRIMARY KEY (id),
     CONSTRAINT fk_stadtteil_stadt FOREIGN KEY (stadt_id) REFERENCES staedte(id) ON UPDATE CASCADE,
+    UNIQUE KEY uq_stadtteil_name_stadt (name, stadt_id),
     INDEX idx_name   (name),
     INDEX idx_stadt  (stadt_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -102,10 +105,12 @@ CREATE TABLE IF NOT EXISTS stadtteile (
 CREATE TABLE IF NOT EXISTS strassen (
     id              INT             NOT NULL AUTO_INCREMENT,
     name            VARCHAR(255)    NOT NULL,
+    wikipedia_name  VARCHAR(255),
     wikidata_id     VARCHAR(50),
     stadt_id        INT             NOT NULL,
     PRIMARY KEY (id),
     CONSTRAINT fk_strasse_stadt FOREIGN KEY (stadt_id) REFERENCES staedte(id) ON UPDATE CASCADE,
+    UNIQUE KEY uq_strasse_name_stadt (name, stadt_id),
     INDEX idx_name   (name),
     INDEX idx_stadt  (stadt_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

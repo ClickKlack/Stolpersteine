@@ -31,8 +31,11 @@ Alle Tabellen enthalten:
 - `nachname` VARCHAR(255)
 - `geburtsname` VARCHAR(255)
 - `geburtsdatum` DATE
+- `geburtsdatum_genauigkeit` ENUM('tag','monat','jahr')
 - `sterbedatum` DATE
+- `sterbedatum_genauigkeit` ENUM('tag','monat','jahr')
 - `biografie_kurz` TEXT
+- `wikipedia_name` VARCHAR(255) — Artikelname auf Wikipedia
 - `wikidata_id_person` VARCHAR(50)
 
 ### 2.2 Verlegeorte (`verlegeorte`)
@@ -108,9 +111,9 @@ Volltextindex getrennt von Kerntabellen.
 Straßen, Stadtteile, PLZ und Städte werden in eigenen Tabellen verwaltet und über eine
 Bridge-Entität `adress_lokationen` verknüpft. `verlegeorte` hält nur eine FK darauf.
 
-- `staedte` – `id`, `name`, `wikidata_id`
-- `stadtteile` – `id`, `name`, `wikidata_id`, `stadt_id` FK
-- `strassen` – `id`, `name`, `wikidata_id`, `stadt_id` FK
+- `staedte` – `id`, `name` (UNIQUE), `wikidata_id`
+- `stadtteile` – `id`, `name`, `wikidata_id`, `stadt_id` FK (UNIQUE `name + stadt_id`)
+- `strassen` – `id`, `name`, `wikipedia_name`, `wikidata_id`, `stadt_id` FK (UNIQUE `name + stadt_id`)
 - `plz` – `id`, `plz`, `stadt_id` FK (UNIQUE `plz + stadt_id`)
 - `adress_lokationen` – `id`, `strasse_id` FK, `stadtteil_id` FK (nullable), `plz_id` FK (nullable)
 
@@ -357,6 +360,9 @@ Ergebnisse werden in `validierungen` gespeichert.
 - Duplikat-Erkennung: Person per Nachname+Vorname, Verlegeort per Straße+Hausnummer
 - Innerhalb einer Datei werden mehrere Steine am selben Ort korrekt zusammengeführt
 - `PersonRepository::findByName()` und `VerlegeortRepository::findByAddress()` als Lookup-Methoden
+- PhpSpreadsheet `RichText`-Objekte werden per `getPlainText()` entladen
+- HTML-Tags werden aus Freitextfeldern (`biografie_kurz`, `bemerkung_historisch`, `beschreibung`) entfernt
+- Wikidata-IDs für Straße und Stadtteil werden beim Import direkt in die normalisierten Tabellen geschrieben
 
 ### Phase 5: Templates & Exporte
 - `ExportHandler` implementieren (`/api/export/{format}`)
@@ -379,7 +385,7 @@ Ergebnisse werden in `validierungen` gespeichert.
 Implementiert:
 - ✅ Login-Seite + Session-Handling
 - ✅ Dashboard mit Statistiken
-- ✅ Personen-Verwaltung (Liste, Filter, Modal Anlegen/Bearbeiten, Lösch-Bestätigung)
+- ✅ Personen-Verwaltung (Liste mit Name-Filter, Modal Anlegen/Bearbeiten, Lösch-Bestätigung, `wikipedia_name`)
 - ✅ Verlegeorte-Verwaltung:
   - Normalisierte Adress-Eingabe mit Autocomplete-Lookup
   - Inline-Formular „Neue Adresse" (`POST /adressen/lokationen`)
@@ -387,6 +393,8 @@ Implementiert:
   - Leaflet-Karte zur Koordinateneingabe
   - Grid-Konfiguration (Rasterbreite/-höhe + Beschreibung)
 - ✅ Stolpersteine-Verwaltung:
+  - Namenssuche (Vorname/Nachname/Geburtsname), Straße, Stadtteil, Status, Zustand, Foto-Filter
+  - Verlegedatum einheitlich als DD.MM.YYYY formatiert
   - Personen-Lookup mit `Vorname Nachname (geb. Geburtsname)` + Geburtsdatum
   - Verlegeort-Lookup mit Beschreibung
   - Visueller Grid-Picker mit Anzeige belegter Positionen
@@ -394,9 +402,17 @@ Implementiert:
   - SHA1-Vergleich lokal ↔ Commons mit Lizenzanzeige
   - Koordinaten-Overrides (lat/lon) mit Leaflet-Karte
   - Einfüge-Handler: entfernt umschließende Anführungszeichen in Inschrift-Feld
+- ✅ Adress-Verwaltung (`adressen.js`):
+  - Unterseiten: Städte, Stadtteile, Straßen, PLZ, Lokationen
+  - Vollständiges CRUD für alle Adressentitäten
+  - Straßen mit `wikipedia_name` und `wikidata_id`
+  - Stadtteile mit `wikidata_id` (Magdeburg: 40 Stadtteile vorgeseedet)
+- ✅ Import-Wizard:
+  - Datei-Upload → Spaltenvorschau → Feld-Mapping → Dry-Run → Ausführen
+  - Fortschrittsanzeige, Zeilen-Status-Tabelle
 - ✅ Klickbare Tabellenzeilen in allen Listen (Klick = Bearbeiten, dezenter Hover-Effekt)
 
-Ausstehend: Dokumente, Suche, Import, Export, Benutzerverwaltung
+Ausstehend: Dokumente, Suche, Export, Benutzerverwaltung
 
 ### Phase 8: Feinschliff & Erweiterungen
 - Optimierungen

@@ -1,25 +1,17 @@
 meta {
-  name: Stolpersteine – Liste
+  name: Adressen – PLZ Liste
   type: http
-  seq: 1
+  seq: 7
 }
 
 get {
-  url: {{baseUrl}}/stolpersteine
+  url: {{baseUrl}}/adressen/alle-plz
   body: none
   auth: none
 }
 
 query {
-  name:
-  status:
-  zustand:
-  stadtteil:
-  strasse:
-  person_id:
-  verlegeort_id:
-  foto_status:
-  ohne_wikidata:
+  stadt_id:
 }
 
 tests {

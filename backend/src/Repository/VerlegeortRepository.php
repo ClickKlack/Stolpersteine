@@ -23,6 +23,7 @@ class VerlegeortRepository
 
         $sql = 'SELECT v.id, v.hausnummer_aktuell, v.beschreibung, v.lat, v.lon,
                        v.adress_lokation_id,
+                       v.bemerkung_historisch, v.adresse_alt, v.raster_beschreibung,
                        s.name  AS strasse_aktuell,  s.wikidata_id  AS wikidata_id_strasse,
                        st.name AS stadtteil,        st.wikidata_id AS wikidata_id_stadtteil,
                        p.plz   AS plz_aktuell,

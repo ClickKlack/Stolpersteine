@@ -1,0 +1,30 @@
+meta {
+  name: Adressen – Stadtteil erstellen
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/adressen/alle-stadtteile
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Altstadt",
+    "stadt_id": 1,
+    "wikidata_id": "Q445520"
+  }
+}
+
+tests {
+  test("Status 200", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.data.name).to.equal("Altstadt");
+  });
+}

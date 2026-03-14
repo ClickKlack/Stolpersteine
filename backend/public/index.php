@@ -91,10 +91,40 @@ $router->add('POST', '/import/analyze', 'Stolpersteine\Api\ImportHandler', 'anal
 $router->add('POST', '/import/preview', 'Stolpersteine\Api\ImportHandler', 'preview');
 $router->add('POST', '/import/execute', 'Stolpersteine\Api\ImportHandler', 'execute');
 
-// Adressen (Lookup)
+// Adressen (Lookup für Autocomplete)
 $router->add('GET',  '/adressen/strassen',   'Stolpersteine\Api\AdressenHandler', 'strassen');
 $router->add('GET',  '/adressen/stadtteile', 'Stolpersteine\Api\AdressenHandler', 'stadtteile');
 $router->add('POST', '/adressen/lokationen', 'Stolpersteine\Api\AdressenHandler', 'createLokation');
+
+// Adressen (Verwaltung)
+$router->add('GET',    '/adressen/staedte',              'Stolpersteine\Api\AdressenHandler', 'staedte');
+$router->add('POST',   '/adressen/staedte',              'Stolpersteine\Api\AdressenHandler', 'createStadt');
+$router->add('GET',    '/adressen/staedte/{id}',         'Stolpersteine\Api\AdressenHandler', 'showStadt');
+$router->add('PUT',    '/adressen/staedte/{id}',         'Stolpersteine\Api\AdressenHandler', 'updateStadt');
+$router->add('DELETE', '/adressen/staedte/{id}',         'Stolpersteine\Api\AdressenHandler', 'deleteStadt');
+
+$router->add('GET',    '/adressen/alle-stadtteile',      'Stolpersteine\Api\AdressenHandler', 'alleStadtteile');
+$router->add('POST',   '/adressen/alle-stadtteile',      'Stolpersteine\Api\AdressenHandler', 'createStadtteil');
+$router->add('GET',    '/adressen/alle-stadtteile/{id}', 'Stolpersteine\Api\AdressenHandler', 'showStadtteil');
+$router->add('PUT',    '/adressen/alle-stadtteile/{id}', 'Stolpersteine\Api\AdressenHandler', 'updateStadtteil');
+$router->add('DELETE', '/adressen/alle-stadtteile/{id}', 'Stolpersteine\Api\AdressenHandler', 'deleteStadtteil');
+
+$router->add('GET',    '/adressen/alle-strassen',        'Stolpersteine\Api\AdressenHandler', 'alleStrassen');
+$router->add('POST',   '/adressen/alle-strassen',        'Stolpersteine\Api\AdressenHandler', 'createStrasse');
+$router->add('GET',    '/adressen/alle-strassen/{id}',   'Stolpersteine\Api\AdressenHandler', 'showStrasse');
+$router->add('PUT',    '/adressen/alle-strassen/{id}',   'Stolpersteine\Api\AdressenHandler', 'updateStrasse');
+$router->add('DELETE', '/adressen/alle-strassen/{id}',   'Stolpersteine\Api\AdressenHandler', 'deleteStrasse');
+
+$router->add('GET',    '/adressen/alle-plz',             'Stolpersteine\Api\AdressenHandler', 'allePlz');
+$router->add('POST',   '/adressen/alle-plz',             'Stolpersteine\Api\AdressenHandler', 'createPlz');
+$router->add('GET',    '/adressen/alle-plz/{id}',        'Stolpersteine\Api\AdressenHandler', 'showPlz');
+$router->add('PUT',    '/adressen/alle-plz/{id}',        'Stolpersteine\Api\AdressenHandler', 'updatePlz');
+$router->add('DELETE', '/adressen/alle-plz/{id}',        'Stolpersteine\Api\AdressenHandler', 'deletePlz');
+
+$router->add('GET',    '/adressen/alle-lokationen',      'Stolpersteine\Api\AdressenHandler', 'alleLokationen');
+$router->add('POST',   '/adressen/alle-lokationen',      'Stolpersteine\Api\AdressenHandler', 'createLokationDirect');
+$router->add('PUT',    '/adressen/alle-lokationen/{id}', 'Stolpersteine\Api\AdressenHandler', 'updateLokation');
+$router->add('DELETE', '/adressen/alle-lokationen/{id}', 'Stolpersteine\Api\AdressenHandler', 'deleteLokation');
 
 // Konfiguration
 $router->add('GET', '/konfiguration', 'Stolpersteine\Api\KonfigurationHandler', 'index');

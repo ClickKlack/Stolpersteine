@@ -11,7 +11,7 @@ document.addEventListener('alpine:init', () => {
         error: null,
 
         // ----- Filter ------------------------------------------------------
-        filter: { strasse: '', stadtteil: '', status: '', zustand: '', foto_status: '' },
+        filter: { name: '', strasse: '', stadtteil: '', status: '', zustand: '', foto_status: '' },
 
         // Filter-Lookups
         strasseLookup:   { query: '', ergebnisse: [], offen: false, loading: false },
@@ -82,6 +82,7 @@ document.addEventListener('alpine:init', () => {
             this.error   = null;
             try {
                 const params = new URLSearchParams();
+                if (this.filter.name)        params.set('name',         this.filter.name);
                 if (this.filter.strasse)     params.set('strasse',      this.filter.strasse);
                 if (this.filter.stadtteil)   params.set('stadtteil',    this.filter.stadtteil);
                 if (this.filter.status)      params.set('status',       this.filter.status);
@@ -97,7 +98,7 @@ document.addEventListener('alpine:init', () => {
         },
 
         resetFilter() {
-            this.filter          = { strasse: '', stadtteil: '', status: '', zustand: '', foto_status: '' };
+            this.filter          = { name: '', strasse: '', stadtteil: '', status: '', zustand: '', foto_status: '' };
             this.strasseLookup   = { query: '', ergebnisse: [], offen: false, loading: false };
             this.stadtteilLookup = { query: '', ergebnisse: [], offen: false, loading: false };
             this.load();

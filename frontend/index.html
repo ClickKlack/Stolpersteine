@@ -24,6 +24,8 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="js/pages/stolpersteine.js"></script>
 <script src="js/pages/verlegeorte.js"></script>
+<script src="js/pages/import.js"></script>
+<script src="js/pages/adressen.js"></script>
 <script src="js/app.js"></script>
 
 <!-- =====================================================================
@@ -139,6 +141,12 @@
                             <a href="#import"
                                :class="{ active: router.is('import') }">
                                 Import
+                            </a>
+                        </li>
+                        <li x-show="auth.isAdmin">
+                            <a href="#adressen"
+                               :class="{ active: router.is('adressen') }">
+                                Adressen
                             </a>
                         </li>
                         <li x-show="auth.isAdmin">
@@ -315,17 +323,21 @@
                                             Geburtsname
                                             <input type="text" x-model="form.geburtsname" :disabled="saving">
                                         </label>
-                                        <div>
-                                            <span style="font-size:0.875rem;">Wikidata-ID</span>
-                                            <div style="display:flex; gap:0.4rem; align-items:center; margin-top:0.35rem;">
-                                                <input type="text" x-model="form.wikidata_id_person" placeholder="Q12345" :disabled="saving" style="margin:0; flex:1;">
-                                                <button type="button" class="btn-icon btn-wikidata"
-                                                        :disabled="!form.wikidata_id_person"
-                                                        @click="window.open('https://www.wikidata.org/wiki/' + form.wikidata_id_person, '_blank')"
-                                                        title="Wikidata-Seite öffnen" aria-label="Wikidata öffnen">
-                                                    <span x-html="ICONS.wikidata"></span>
-                                                </button>
-                                            </div>
+                                        <label>
+                                            Wikipedia-Artikelname
+                                            <input type="text" x-model="form.wikipedia_name" placeholder="z. B. Max Mustermann (Magdeburg)" :disabled="saving">
+                                        </label>
+                                    </div>
+                                    <div>
+                                        <span style="font-size:0.875rem;">Wikidata-ID</span>
+                                        <div style="display:flex; gap:0.4rem; align-items:center; margin-top:0.35rem;">
+                                            <input type="text" x-model="form.wikidata_id_person" placeholder="Q12345" :disabled="saving" style="margin:0; flex:1;">
+                                            <button type="button" class="btn-icon btn-wikidata"
+                                                    :disabled="!form.wikidata_id_person"
+                                                    @click="window.open('https://www.wikidata.org/wiki/' + form.wikidata_id_person, '_blank')"
+                                                    title="Wikidata-Seite öffnen" aria-label="Wikidata öffnen">
+                                                <span x-html="ICONS.wikidata"></span>
+                                            </button>
                                         </div>
                                     </div>
                                     <!-- Geburtsdatum -->
@@ -470,6 +482,16 @@
 
                         <!-- Filter -->
                         <div class="filter-bar">
+                            <!-- Namenssuche -->
+                            <label class="filter-field">
+                                <span>Person</span>
+                                <input type="text"
+                                       x-model="filter.name"
+                                       @input.debounce.300ms="load()"
+                                       placeholder="Name …"
+                                       style="margin:0;">
+                            </label>
+
                             <!-- Straßen-Lookup -->
                             <div class="filter-field">
                                 <span>Straße</span>
@@ -517,9 +539,13 @@
                                 <select x-model="filter.status" @change="load()">
                                     <option value="">Alle</option>
                                     <option value="neu">Neu</option>
-                                    <option value="aktiv">Aktiv</option>
-                                    <option value="entfernt">Entfernt</option>
-                                    <option value="zerstoert">Zerstört</option>
+                                    <option value="validierung">In Validierung</option>
+                                    <option value="freigegeben">Freigegeben</option>
+                                    <option value="archiviert">Archiviert</option>
+                                    <option value="fehlerhaft">Fehlerhaft</option>
+                                    <option value="abgleich_wikipedia">Abgleich Wikipedia</option>
+                                    <option value="abgleich_osm">Abgleich OSM</option>
+                                    <option value="abgleich_wikidata">Abgleich Wikidata</option>
                                 </select>
                             </label>
                             <label class="filter-field">
@@ -527,9 +553,10 @@
                                 <select x-model="filter.zustand" @change="load()">
                                     <option value="">Alle</option>
                                     <option value="verfuegbar">Verfügbar</option>
+                                    <option value="stein_fehlend">Stein fehlend</option>
+                                    <option value="kein_stein">Kein Stein</option>
                                     <option value="beschaedigt">Beschädigt</option>
-                                    <option value="gestohlen">Gestohlen</option>
-                                    <option value="ersetzt">Ersetzt</option>
+                                    <option value="unleserlich">Unleserlich</option>
                                 </select>
                             </label>
                             <label class="filter-field">
@@ -589,7 +616,7 @@
                                                             </button>
                                                         </td>
                                                         <td x-text="adresseAnzeige(stein)"></td>
-                                                        <td x-text="stein.verlegedatum ? new Date(stein.verlegedatum).toLocaleDateString('de-DE') : '–'"></td>
+                                                        <td x-text="stein.verlegedatum ? stein.verlegedatum.split('-').reverse().join('.') : '–'"></td>
                                                         <td>
                                                             <span class="badge" :class="'badge-status-' + stein.status"
                                                                   x-text="statusLabel(stein.status)"></span>
@@ -811,18 +838,23 @@
                                             Status
                                             <select x-model="form.status" :disabled="saving">
                                                 <option value="neu">Neu</option>
-                                                <option value="aktiv">Aktiv</option>
-                                                <option value="entfernt">Entfernt</option>
-                                                <option value="zerstoert">Zerstört</option>
+                                                <option value="validierung">In Validierung</option>
+                                                <option value="freigegeben">Freigegeben</option>
+                                                <option value="archiviert">Archiviert</option>
+                                                <option value="fehlerhaft">Fehlerhaft</option>
+                                                <option value="abgleich_wikipedia">Abgleich Wikipedia</option>
+                                                <option value="abgleich_osm">Abgleich OSM</option>
+                                                <option value="abgleich_wikidata">Abgleich Wikidata</option>
                                             </select>
                                         </label>
                                         <label style="margin:0;">
                                             Zustand
                                             <select x-model="form.zustand" :disabled="saving">
                                                 <option value="verfuegbar">Verfügbar</option>
+                                                <option value="stein_fehlend">Stein fehlend</option>
+                                                <option value="kein_stein">Kein Stein</option>
                                                 <option value="beschaedigt">Beschädigt</option>
-                                                <option value="gestohlen">Gestohlen</option>
-                                                <option value="ersetzt">Ersetzt</option>
+                                                <option value="unleserlich">Unleserlich</option>
                                             </select>
                                         </label>
                                     </div>
@@ -1495,13 +1527,796 @@
                     </div>
                 </template>
 
-                <!-- Import (Platzhalter) -->
+                <!-- Import-Wizard -->
                 <template x-if="router.is('import')">
-                    <div>
-                        <div class="page-placeholder">
-                            <h2>Import</h2>
-                            <p>Diese Seite wird in der nächsten Phase implementiert.</p>
+                    <div x-data="importPage">
+
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem;">
+                            <h2 style="margin:0;">Import</h2>
+                            <button class="outline" style="font-size:0.85rem;" x-show="schritt > 1" @click="reset()">
+                                Neu starten
+                            </button>
                         </div>
+
+                        <!-- Schrittanzeige -->
+                        <div class="wizard-steps">
+                            <div :class="['wizard-step', schritt >= 1 ? 'done' : '', schritt === 1 ? 'current' : '']">
+                                <span class="wizard-step-num">1</span>
+                                <span class="wizard-step-label">Datei</span>
+                            </div>
+                            <div class="wizard-connector"></div>
+                            <div :class="['wizard-step', schritt >= 2 ? 'done' : '', schritt === 2 ? 'current' : '']">
+                                <span class="wizard-step-num">2</span>
+                                <span class="wizard-step-label">Spalten</span>
+                            </div>
+                            <div class="wizard-connector"></div>
+                            <div :class="['wizard-step', schritt >= 3 ? 'done' : '', schritt === 3 ? 'current' : '']">
+                                <span class="wizard-step-num">3</span>
+                                <span class="wizard-step-label">Vorschau</span>
+                            </div>
+                            <div class="wizard-connector"></div>
+                            <div :class="['wizard-step', schritt >= 4 ? 'done' : '', schritt === 4 ? 'current' : '']">
+                                <span class="wizard-step-num">4</span>
+                                <span class="wizard-step-label">Ergebnis</span>
+                            </div>
+                        </div>
+
+                        <!-- ================================================
+                             SCHRITT 1: Datei-Upload
+                             ================================================ -->
+                        <template x-if="schritt === 1">
+                            <article>
+                                <h3>Datei auswählen</h3>
+                                <p style="color:var(--pico-muted-color);">
+                                    Unterstützte Formate: <code>.xlsx</code>, <code>.xls</code>, <code>.ods</code>, <code>.csv</code>
+                                </p>
+                                <label>
+                                    Datei
+                                    <input type="file" accept=".xlsx,.xls,.ods,.csv"
+                                           @change="onFileChange($event)">
+                                </label>
+                                <template x-if="analyzeError">
+                                    <p style="color:var(--pico-del-color);" x-text="analyzeError"></p>
+                                </template>
+                                <button @click="doAnalyze()"
+                                        :disabled="!datei || analyzing"
+                                        :aria-busy="analyzing"
+                                        style="margin-top:0.5rem;">
+                                    <span x-text="analyzing ? 'Analysiere …' : 'Weiter →'"></span>
+                                </button>
+                            </article>
+                        </template>
+
+                        <!-- ================================================
+                             SCHRITT 2: Spalten-Mapping
+                             ================================================ -->
+                        <template x-if="schritt === 2">
+                            <div>
+                                <article style="margin-bottom:1rem;">
+                                    <p style="margin:0; color:var(--pico-muted-color);">
+                                        <strong x-text="dateiName"></strong> –
+                                        <span x-text="analyse.zeilenanzahl"></span> Zeilen,
+                                        <span x-text="analyse.spaltenanzahl"></span> Spalten
+                                    </p>
+                                    <div style="margin-top:0.75rem; max-width:220px;">
+                                        <label for="import-startzeile" style="font-size:0.9rem;">Erste Datenzeile</label>
+                                        <input id="import-startzeile" type="number"
+                                               x-model.number="startzeile" min="1"
+                                               style="margin:0; padding:0.3rem 0.5rem;">
+                                    </div>
+                                </article>
+
+                                <!-- Dateivorschau (aufklappbar) -->
+                                <details style="margin-bottom:1rem;">
+                                    <summary style="cursor:pointer; font-weight:600; padding:0.5rem 0;">
+                                        Dateivorschau (erste Zeilen)
+                                    </summary>
+                                    <div style="overflow-x:auto; margin-top:0.5rem;">
+                                        <table style="font-size:0.8rem; white-space:nowrap;">
+                                            <thead>
+                                                <tr>
+                                                    <th style="color:var(--pico-muted-color);">#</th>
+                                                    <template x-for="col in vorschauSpalten" :key="col">
+                                                        <th x-text="col"></th>
+                                                    </template>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <template x-for="row in analyse.vorschau" :key="row.zeile">
+                                                    <tr>
+                                                        <td x-text="row.zeile" style="color:var(--pico-muted-color); font-weight:600;"></td>
+                                                        <template x-for="col in vorschauSpalten" :key="col">
+                                                            <td style="max-width:180px; overflow:hidden; text-overflow:ellipsis;"
+                                                                x-text="row.spalten[col] || '–'"></td>
+                                                        </template>
+                                                    </tr>
+                                                </template>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </details>
+
+                                <!-- Feld-Gruppen -->
+                                <template x-for="gruppe in feldGruppen" :key="gruppe.gruppe">
+                                    <article style="margin-bottom:1rem;">
+                                        <header style="padding:0.5rem 0; border-bottom:1px solid var(--pico-secondary-background);">
+                                            <strong x-text="gruppe.gruppe"></strong>
+                                        </header>
+                                        <div class="mapping-grid" style="margin-top:0.75rem;">
+                                            <template x-for="feld in gruppe.felder" :key="feld">
+                                                <div class="mapping-row">
+                                                    <label :for="'map-' + feld" x-text="feldLabel(feld)"></label>
+                                                    <select :id="'map-' + feld"
+                                                            :value="mapping[feld] || ''"
+                                                            @change="mapping[feld] = $event.target.value || undefined">
+                                                        <option value="">– nicht zuordnen –</option>
+                                                        <template x-for="opt in spaltenOptionen" :key="opt.col">
+                                                            <option :value="opt.col"
+                                                                    :selected="mapping[feld] === opt.col"
+                                                                    x-text="opt.label"></option>
+                                                        </template>
+                                                    </select>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </article>
+                                </template>
+
+                                <template x-if="previewError">
+                                    <p style="color:var(--pico-del-color);" x-text="previewError"></p>
+                                </template>
+                                <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
+                                    <button class="outline" @click="schritt = 1">← Zurück</button>
+                                    <button @click="doPreview()" :disabled="previewing" :aria-busy="previewing">
+                                        <span x-text="previewing ? 'Prüfe …' : 'Vorschau anzeigen →'"></span>
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- ================================================
+                             SCHRITT 3: Vorschau (Dry-Run)
+                             ================================================ -->
+                        <template x-if="schritt === 3">
+                            <div>
+                                <!-- Zusammenfassung -->
+                                <div class="stat-grid" style="margin-bottom:1.5rem;">
+                                    <div class="stat-card">
+                                        <div class="stat-value" x-text="vorschau.gesamt"></div>
+                                        <div class="stat-label">Zeilen gesamt</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value" x-text="vorschau.neue_personen"></div>
+                                        <div class="stat-label">Neue Personen</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value" x-text="vorschau.neue_verlegeorte"></div>
+                                        <div class="stat-label">Neue Verlegeorte</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value" x-text="vorschau.neue_steine"></div>
+                                        <div class="stat-label">Neue Stolpersteine</div>
+                                    </div>
+                                    <div class="stat-card" x-show="vorschau.fehler > 0">
+                                        <div class="stat-value" style="color:var(--pico-del-color);" x-text="vorschau.fehler"></div>
+                                        <div class="stat-label">Fehler</div>
+                                    </div>
+                                </div>
+
+                                <!-- Zeilendetails -->
+                                <details open>
+                                    <summary style="cursor:pointer; font-weight:600; padding:0.5rem 0;">
+                                        Zeilendetails (<span x-text="vorschau.zeilen.length"></span>)
+                                    </summary>
+                                    <div style="overflow-x:auto; margin-top:0.5rem;">
+                                        <table style="font-size:0.8rem;">
+                                            <thead>
+                                                <tr>
+                                                    <th>Zeile</th>
+                                                    <th>Status</th>
+                                                    <th>Person</th>
+                                                    <th>Verlegeort</th>
+                                                    <th>Hinweise</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <template x-for="(zeile, idx) in vorschau.zeilen" :key="zeile.zeile">
+                                                    <tr x-show="idx < vorschauLimit">
+                                                        <td x-text="zeile.zeile" style="color:var(--pico-muted-color);"></td>
+                                                        <td>
+                                                            <span :style="'color:' + (zeile.status === 'ok' ? 'var(--pico-ins-color)' : 'var(--pico-del-color)')"
+                                                                  x-text="zeile.status === 'ok' ? 'OK' : 'Fehler'"></span>
+                                                        </td>
+                                                        <td>
+                                                            <template x-if="zeile.person">
+                                                                <span>
+                                                                    <span x-text="[zeile.person.vorname, zeile.person.nachname].filter(Boolean).join(' ')"></span>
+                                                                    <span style="color:var(--pico-muted-color); font-size:0.75rem;"
+                                                                          x-text="' (' + personStatusLabel(zeile.person_status) + ')'"></span>
+                                                                </span>
+                                                            </template>
+                                                        </td>
+                                                        <td>
+                                                            <template x-if="zeile.verlegeort">
+                                                                <span>
+                                                                    <span x-text="[zeile.verlegeort.strasse_aktuell, zeile.verlegeort.hausnummer_aktuell].filter(Boolean).join(' ')"></span>
+                                                                    <span style="color:var(--pico-muted-color); font-size:0.75rem;"
+                                                                          x-text="' (' + ortStatusLabel(zeile.ort_status) + ')'"></span>
+                                                                </span>
+                                                            </template>
+                                                        </td>
+                                                        <td>
+                                                            <template x-if="zeile.meldungen && zeile.meldungen.length">
+                                                                <span x-text="zeile.meldungen.join(', ')"
+                                                                      style="color:var(--pico-del-color);"></span>
+                                                            </template>
+                                                        </td>
+                                                    </tr>
+                                                </template>
+                                            </tbody>
+                                        </table>
+                                        <template x-if="vorschau.zeilen.length > vorschauLimit">
+                                            <p style="text-align:center; color:var(--pico-muted-color); font-size:0.85rem; margin-top:0.5rem;">
+                                                … und <span x-text="vorschau.zeilen.length - vorschauLimit"></span> weitere Zeilen –
+                                                <a href="#" @click.prevent="vorschauLimit += 100">Mehr anzeigen</a>
+                                            </p>
+                                        </template>
+                                    </div>
+                                </details>
+
+                                <template x-if="executeError">
+                                    <p style="color:var(--pico-del-color); margin-top:1rem;" x-text="executeError"></p>
+                                </template>
+                                <div style="display:flex; gap:0.5rem; margin-top:1rem; align-items:center; flex-wrap:wrap;">
+                                    <button class="outline" @click="schritt = 2">← Zurück</button>
+                                    <template x-if="!importMoeglich">
+                                        <p style="margin:0; color:var(--pico-del-color);">
+                                            Alle Zeilen haben Fehler – Import nicht möglich.
+                                        </p>
+                                    </template>
+                                    <template x-if="importMoeglich">
+                                        <button @click="doExecute()" :disabled="executing" :aria-busy="executing"
+                                                style="background:var(--pico-ins-color); border-color:var(--pico-ins-color);">
+                                            <span x-text="executing ? 'Importiere …' : 'Import starten (' + vorschau.neue_steine + ' Stolpersteine)'"></span>
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- ================================================
+                             SCHRITT 4: Ergebnis
+                             ================================================ -->
+                        <template x-if="schritt === 4">
+                            <div>
+                                <article style="border-left:4px solid var(--pico-ins-color); margin-bottom:1.5rem;">
+                                    <h3 style="color:var(--pico-ins-color); margin-top:0;">✓ Import abgeschlossen</h3>
+                                    <div class="stat-grid">
+                                        <div class="stat-card">
+                                            <div class="stat-value" x-text="ergebnis.neue_personen"></div>
+                                            <div class="stat-label">Neue Personen</div>
+                                        </div>
+                                        <div class="stat-card">
+                                            <div class="stat-value" x-text="ergebnis.neue_verlegeorte"></div>
+                                            <div class="stat-label">Neue Verlegeorte</div>
+                                        </div>
+                                        <div class="stat-card">
+                                            <div class="stat-value" x-text="ergebnis.neue_steine"></div>
+                                            <div class="stat-label">Importierte Stolpersteine</div>
+                                        </div>
+                                        <div class="stat-card" x-show="ergebnis.fehler > 0">
+                                            <div class="stat-value" style="color:var(--pico-del-color);" x-text="ergebnis.fehler"></div>
+                                            <div class="stat-label">Übersprungene Zeilen</div>
+                                        </div>
+                                    </div>
+                                    <div style="display:flex; gap:0.5rem; margin-top:1rem;">
+                                        <button class="outline" @click="reset()">Neuer Import</button>
+                                        <a href="#stolpersteine" role="button" class="outline">Stolpersteine ansehen</a>
+                                    </div>
+                                </article>
+
+                                <!-- Importdetails (aufklappbar) -->
+                                <details>
+                                    <summary style="cursor:pointer; font-weight:600; padding:0.5rem 0;">
+                                        Importdetails (<span x-text="ergebnis.zeilen.length"></span> Zeilen)
+                                    </summary>
+                                    <div style="overflow-x:auto; margin-top:0.5rem;">
+                                        <table style="font-size:0.8rem;">
+                                            <thead>
+                                                <tr>
+                                                    <th>Zeile</th>
+                                                    <th>Status</th>
+                                                    <th>Person-ID</th>
+                                                    <th>Verlegeort-ID</th>
+                                                    <th>Stolperstein-ID</th>
+                                                    <th>Hinweise</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <template x-for="zeile in ergebnis.zeilen" :key="zeile.zeile">
+                                                    <tr>
+                                                        <td x-text="zeile.zeile" style="color:var(--pico-muted-color);"></td>
+                                                        <td>
+                                                            <span :style="'color:' + (zeile.status === 'importiert' ? 'var(--pico-ins-color)' : 'var(--pico-del-color)')"
+                                                                  x-text="zeile.status"></span>
+                                                        </td>
+                                                        <td x-text="zeile.person_id ?? '–'"></td>
+                                                        <td x-text="zeile.verlegeort_id ?? '–'"></td>
+                                                        <td x-text="zeile.stolperstein_id ?? '–'"></td>
+                                                        <td>
+                                                            <template x-if="zeile.meldungen && zeile.meldungen.length">
+                                                                <span x-text="zeile.meldungen.join(', ')"
+                                                                      style="color:var(--pico-del-color);"></span>
+                                                            </template>
+                                                        </td>
+                                                    </tr>
+                                                </template>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </details>
+                            </div>
+                        </template>
+
+                    </div>
+                </template>
+
+                <!-- Adressen-Verwaltung -->
+                <template x-if="router.is('adressen') && auth.isAdmin">
+                    <div x-data="adressenPage">
+
+                        <!-- Kopfzeile: Untermenü + Hinzufügen-Button -->
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:1rem; flex-wrap:wrap;">
+                            <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+                                <h2 style="margin:0;">Adressen</h2>
+                                <div style="display:flex; gap:0.25rem; flex-wrap:wrap;">
+                                    <template x-for="item in [
+                                        { key:'lokationen',  label:'Lokationen' },
+                                        { key:'staedte',     label:'Städte' },
+                                        { key:'stadtteile',  label:'Stadtteile' },
+                                        { key:'strassen',    label:'Straßen' },
+                                        { key:'plz',         label:'PLZ' },
+                                    ]" :key="item.key">
+                                        <a href="#"
+                                           role="button"
+                                           :class="sub === item.key ? '' : 'outline'"
+                                           style="padding:0.3rem 0.8rem; font-size:0.9rem;"
+                                           @click.prevent="loadSub(item.key)"
+                                           x-text="item.label"></a>
+                                    </template>
+                                </div>
+                            </div>
+                            <button @click="openCreate()" style="white-space:nowrap;">+ Hinzufügen</button>
+                        </div>
+
+                        <!-- Fehler -->
+                        <template x-if="error">
+                            <p style="color:var(--pico-del-color);" x-text="error"></p>
+                        </template>
+
+                        <!-- Ladeindikator -->
+                        <template x-if="loading">
+                            <p aria-busy="true">Lade …</p>
+                        </template>
+
+                        <!-- -------------------------------------------------- -->
+                        <!-- Lokationen                                           -->
+                        <!-- -------------------------------------------------- -->
+                        <template x-if="!loading && sub === 'lokationen'">
+                            <div>
+                                <div style="display:flex; gap:1rem; margin-bottom:1rem; flex-wrap:wrap;">
+                                    <select style="max-width:220px;"
+                                            x-model="filterStadtteilId"
+                                            @change="_loadLokationen()">
+                                        <option value="">Alle Stadtteile</option>
+                                        <template x-for="st in stadtteile" :key="st.id">
+                                            <option :value="st.id" x-text="st.name + ' (' + st.stadt_name + ')'"></option>
+                                        </template>
+                                    </select>
+                                    <select style="max-width:220px;"
+                                            x-model="filterStrasseId"
+                                            @change="_loadLokationen()">
+                                        <option value="">Alle Straßen</option>
+                                        <template x-for="s in strassen" :key="s.id">
+                                            <option :value="s.id" x-text="s.name"></option>
+                                        </template>
+                                    </select>
+                                    <select style="max-width:160px;"
+                                            x-model="filterPlzId"
+                                            @change="_loadLokationen()">
+                                        <option value="">Alle PLZ</option>
+                                        <template x-for="p in plzListe" :key="p.id">
+                                            <option :value="p.id" x-text="p.plz"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div class="table-responsive">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Stadt</th>
+                                                <th>Straße</th>
+                                                <th>Stadtteil</th>
+                                                <th>PLZ</th>
+                                                <th>Verlegeorte</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <template x-for="lok in lokationen" :key="lok.lokation_id">
+                                                <tr class="tr-clickable" @click="openEdit(lok)">
+                                                    <td x-text="lok.lokation_id"></td>
+                                                    <td x-text="lok.stadt_name"></td>
+                                                    <td x-text="lok.strasse_name"></td>
+                                                    <td x-text="lok.stadtteil_name ?? '—'"></td>
+                                                    <td x-text="lok.plz ?? '—'"></td>
+                                                    <td x-text="lok.anzahl_verlegeorte"></td>
+                                                    <td class="td-actions" @click.stop>
+                                                        <button class="btn-icon" @click="openEdit(lok)" title="Bearbeiten" aria-label="Bearbeiten">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>
+                                                        </button>
+                                                        <button class="btn-icon btn-delete" @click="openDelete(lok)" title="Löschen" aria-label="Löschen">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            </template>
+                                            <template x-if="lokationen.length === 0">
+                                                <tr><td colspan="7" style="text-align:center; color:var(--pico-muted-color);">Keine Lokationen gefunden.</td></tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- -------------------------------------------------- -->
+                        <!-- Städte                                               -->
+                        <!-- -------------------------------------------------- -->
+                        <template x-if="!loading && sub === 'staedte'">
+                            <div>
+                                <div class="table-responsive">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Name</th>
+                                                <th>Wikidata</th>
+                                                <th>Straßen</th>
+                                                <th>Stadtteile</th>
+                                                <th>PLZ</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <template x-for="s in staedte" :key="s.id">
+                                                <tr class="tr-clickable" @click="openEdit(s)">
+                                                    <td x-text="s.id"></td>
+                                                    <td x-text="s.name"></td>
+                                                    <td>
+                                                        <button class="btn-icon btn-wikidata" x-show="s.wikidata_id"
+                                                                @click.stop="openWikidata(s.wikidata_id)"
+                                                                title="Wikidata öffnen" aria-label="Wikidata öffnen">
+                                                            <span x-html="ICONS.wikidata"></span>
+                                                        </button>
+                                                        <span x-show="!s.wikidata_id" style="color:var(--pico-muted-color);">—</span>
+                                                    </td>
+                                                    <td x-text="s.anzahl_strassen"></td>
+                                                    <td x-text="s.anzahl_stadtteile"></td>
+                                                    <td x-text="s.anzahl_plz"></td>
+                                                    <td class="td-actions" @click.stop>
+                                                        <button class="btn-icon" @click="openEdit(s)" title="Bearbeiten" aria-label="Bearbeiten">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>
+                                                        </button>
+                                                        <button class="btn-icon btn-delete" @click="openDelete(s)" title="Löschen" aria-label="Löschen">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- -------------------------------------------------- -->
+                        <!-- Stadtteile                                           -->
+                        <!-- -------------------------------------------------- -->
+                        <template x-if="!loading && sub === 'stadtteile'">
+                            <div>
+                                <div class="table-responsive">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Name</th>
+                                                <th>Stadt</th>
+                                                <th>Wikidata</th>
+                                                <th>Lokationen</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <template x-for="st in stadtteile" :key="st.id">
+                                                <tr class="tr-clickable" @click="openEdit(st)">
+                                                    <td x-text="st.id"></td>
+                                                    <td x-text="st.name"></td>
+                                                    <td x-text="st.stadt_name"></td>
+                                                    <td>
+                                                        <button class="btn-icon btn-wikidata" x-show="st.wikidata_id"
+                                                                @click.stop="openWikidata(st.wikidata_id)"
+                                                                title="Wikidata öffnen" aria-label="Wikidata öffnen">
+                                                            <span x-html="ICONS.wikidata"></span>
+                                                        </button>
+                                                        <span x-show="!st.wikidata_id" style="color:var(--pico-muted-color);">—</span>
+                                                    </td>
+                                                    <td x-text="st.anzahl_lokationen"></td>
+                                                    <td class="td-actions" @click.stop>
+                                                        <button class="btn-icon" @click="openEdit(st)" title="Bearbeiten" aria-label="Bearbeiten">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>
+                                                        </button>
+                                                        <button class="btn-icon btn-delete" @click="openDelete(st)" title="Löschen" aria-label="Löschen">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- -------------------------------------------------- -->
+                        <!-- Straßen                                              -->
+                        <!-- -------------------------------------------------- -->
+                        <template x-if="!loading && sub === 'strassen'">
+                            <div>
+                                <div class="table-responsive">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Name</th>
+                                                <th>Stadt</th>
+                                                <th>Wikidata</th>
+                                                <th>Lokationen</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <template x-for="s in strassen" :key="s.id">
+                                                <tr class="tr-clickable" @click="openEdit(s)">
+                                                    <td x-text="s.id"></td>
+                                                    <td x-text="s.name"></td>
+                                                    <td x-text="s.stadt_name"></td>
+                                                    <td>
+                                                        <button class="btn-icon btn-wikidata" x-show="s.wikidata_id"
+                                                                @click.stop="openWikidata(s.wikidata_id)"
+                                                                title="Wikidata öffnen" aria-label="Wikidata öffnen">
+                                                            <span x-html="ICONS.wikidata"></span>
+                                                        </button>
+                                                        <span x-show="!s.wikidata_id" style="color:var(--pico-muted-color);">—</span>
+                                                    </td>
+                                                    <td x-text="s.anzahl_lokationen"></td>
+                                                    <td class="td-actions" @click.stop>
+                                                        <button class="btn-icon" @click="openEdit(s)" title="Bearbeiten" aria-label="Bearbeiten">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>
+                                                        </button>
+                                                        <button class="btn-icon btn-delete" @click="openDelete(s)" title="Löschen" aria-label="Löschen">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- -------------------------------------------------- -->
+                        <!-- PLZ                                                  -->
+                        <!-- -------------------------------------------------- -->
+                        <template x-if="!loading && sub === 'plz'">
+                            <div>
+                                <div class="table-responsive">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>PLZ</th>
+                                                <th>Stadt</th>
+                                                <th>Lokationen</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <template x-for="p in plzListe" :key="p.id">
+                                                <tr class="tr-clickable" @click="openEdit(p)">
+                                                    <td x-text="p.id"></td>
+                                                    <td x-text="p.plz"></td>
+                                                    <td x-text="p.stadt_name"></td>
+                                                    <td x-text="p.anzahl_lokationen"></td>
+                                                    <td class="td-actions" @click.stop>
+                                                        <button class="btn-icon" @click="openEdit(p)" title="Bearbeiten" aria-label="Bearbeiten">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>
+                                                        </button>
+                                                        <button class="btn-icon btn-delete" @click="openDelete(p)" title="Löschen" aria-label="Löschen">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- ================================================== -->
+                        <!-- Modal: Anlegen / Bearbeiten                         -->
+                        <!-- ================================================== -->
+                        <div x-show="modal === 'edit'" class="modal-backdrop" @click.self="modal = null">
+                            <article class="modal-dialog" style="max-width:480px;">
+                                    <header>
+                                        <h3 style="margin:0;" x-text="modalTitle()"></h3>
+                                    </header>
+
+                                    <p x-show="modalFehler" style="color:var(--pico-del-color);" x-text="modalFehler"></p>
+
+                                    <!-- Städte -->
+                                    <div x-show="sub === 'staedte'">
+                                        <label>Name *
+                                            <input type="text" x-model="editObj.name" required>
+                                        </label>
+                                        <label>Wikidata-ID
+                                            <div style="display:flex; gap:0.5rem;">
+                                                <input type="text" x-model="editObj.wikidata_id"
+                                                       placeholder="z. B. Q1023" style="flex:1;">
+                                                <button type="button" class="btn-icon btn-wikidata"
+                                                        :disabled="!editObj.wikidata_id"
+                                                        @click="openWikidata(editObj.wikidata_id)"
+                                                        title="Wikidata öffnen">
+                                                    <span x-html="ICONS.wikidata"></span>
+                                                </button>
+                                            </div>
+                                        </label>
+                                    </div>
+
+                                    <!-- Stadtteile -->
+                                    <div x-show="sub === 'stadtteile'">
+                                        <label>Name *
+                                            <input type="text" x-model="editObj.name" required>
+                                        </label>
+                                        <label>Stadt *
+                                            <select x-model="editObj.stadt_id">
+                                                <template x-for="sta in staedte" :key="sta.id">
+                                                    <option :value="sta.id" x-text="sta.name"></option>
+                                                </template>
+                                            </select>
+                                        </label>
+                                        <label>Wikidata-ID
+                                            <div style="display:flex; gap:0.5rem;">
+                                                <input type="text" x-model="editObj.wikidata_id"
+                                                       placeholder="z. B. Q1234" style="flex:1;">
+                                                <button type="button" class="btn-icon btn-wikidata"
+                                                        :disabled="!editObj.wikidata_id"
+                                                        @click="openWikidata(editObj.wikidata_id)"
+                                                        title="Wikidata öffnen">
+                                                    <span x-html="ICONS.wikidata"></span>
+                                                </button>
+                                            </div>
+                                        </label>
+                                    </div>
+
+                                    <!-- Straßen -->
+                                    <div x-show="sub === 'strassen'">
+                                        <label>Name *
+                                            <input type="text" x-model="editObj.name" required>
+                                        </label>
+                                        <label>Stadt *
+                                            <select x-model="editObj.stadt_id">
+                                                <template x-for="sta in staedte" :key="sta.id">
+                                                    <option :value="sta.id" x-text="sta.name"></option>
+                                                </template>
+                                            </select>
+                                        </label>
+                                        <label>Wikipedia-Artikelname
+                                            <input type="text" x-model="editObj.wikipedia_name"
+                                                   placeholder="z. B. Breiter Weg (Magdeburg)">
+                                        </label>
+                                        <label>Wikidata-ID
+                                            <div style="display:flex; gap:0.5rem;">
+                                                <input type="text" x-model="editObj.wikidata_id"
+                                                       placeholder="z. B. Q5678" style="flex:1;">
+                                                <button type="button" class="btn-icon btn-wikidata"
+                                                        :disabled="!editObj.wikidata_id"
+                                                        @click="openWikidata(editObj.wikidata_id)"
+                                                        title="Wikidata öffnen">
+                                                    <span x-html="ICONS.wikidata"></span>
+                                                </button>
+                                            </div>
+                                        </label>
+                                    </div>
+
+                                    <!-- PLZ -->
+                                    <div x-show="sub === 'plz'">
+                                        <label>PLZ *
+                                            <input type="text" x-model="editObj.plz" required>
+                                        </label>
+                                        <label>Stadt *
+                                            <select x-model="editObj.stadt_id">
+                                                <template x-for="sta in staedte" :key="sta.id">
+                                                    <option :value="sta.id" x-text="sta.name"></option>
+                                                </template>
+                                            </select>
+                                        </label>
+                                    </div>
+
+                                    <!-- Lokationen -->
+                                    <div x-show="sub === 'lokationen'">
+                                        <label>Straße *
+                                            <select x-model="editObj.strasse_id">
+                                                <option value="">– bitte wählen –</option>
+                                                <template x-for="s in strassen" :key="s.id">
+                                                    <option :value="s.id" x-text="s.name + ' (' + s.stadt_name + ')'"></option>
+                                                </template>
+                                            </select>
+                                        </label>
+                                        <label>Stadtteil (optional)
+                                            <select x-model="editObj.stadtteil_id">
+                                                <option value="">— kein Stadtteil —</option>
+                                                <template x-for="st in stadtteile" :key="st.id">
+                                                    <option :value="st.id" x-text="st.name + ' (' + st.stadt_name + ')'"></option>
+                                                </template>
+                                            </select>
+                                        </label>
+                                        <label>PLZ (optional)
+                                            <select x-model="editObj.plz_id">
+                                                <option value="">— keine PLZ —</option>
+                                                <template x-for="p in plzListe" :key="p.id">
+                                                    <option :value="p.id" x-text="p.plz + ' (' + p.stadt_name + ')'"></option>
+                                                </template>
+                                            </select>
+                                            </label>
+                                        </div>
+
+                                    <footer style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                                        <button class="outline" @click="modal = null">Abbrechen</button>
+                                        <button @click="saveEdit()" :aria-busy="saving" :disabled="saving">
+                                            Speichern
+                                        </button>
+                                    </footer>
+                                </article>
+                            </div>
+
+                        <!-- ================================================== -->
+                        <!-- Modal: Löschen bestätigen                           -->
+                        <!-- ================================================== -->
+                        <div x-show="modal === 'delete'" class="modal-backdrop" @click.self="modal = null">
+                            <article class="modal-dialog" style="max-width:420px;">
+                                    <header>
+                                        <h3 style="margin:0;">Löschen bestätigen</h3>
+                                    </header>
+                                    <p>
+                                        Soll <strong x-text="deleteLabel(deleteObj)"></strong> wirklich gelöscht werden?
+                                    </p>
+
+                                    <p x-show="modalFehler" style="color:var(--pico-del-color);" x-text="modalFehler"></p>
+
+                                    <footer style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                                        <button class="outline" @click="modal = null" :disabled="deleting">Abbrechen</button>
+                                        <button @click="confirmDelete()" :aria-busy="deleting" :disabled="deleting"
+                                                style="background:var(--pico-del-color); border-color:var(--pico-del-color);">
+                                            Löschen
+                                        </button>
+                                    </footer>
+                                </article>
+                        </div>
+
                     </div>
                 </template>
 

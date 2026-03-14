@@ -6,9 +6,11 @@ namespace Stolpersteine\Service;
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use Stolpersteine\Repository\PersonRepository;
 use Stolpersteine\Repository\VerlegeortRepository;
 use Stolpersteine\Repository\StolpersteinRepository;
+use Stolpersteine\Repository\AdresseRepository;
 use Stolpersteine\Repository\AuditRepository;
 
 class ImportService
@@ -21,23 +23,87 @@ class ImportService
 
     private const VERLEGEORT_FIELDS = [
         'strasse_aktuell', 'hausnummer_aktuell', 'stadtteil', 'plz_aktuell',
-        'lat', 'lon', 'bemerkung_historisch', 'grid_n', 'grid_m',
+        'wikidata_id_strasse', 'wikidata_id_stadtteil',
+        'lat', 'lon', 'beschreibung', 'bemerkung_historisch', 'grid_n', 'grid_m',
     ];
+
+    // Freitext-Felder, aus denen HTML-Tags entfernt werden
+    private const HTML_STRIP_FIELDS = ['biografie_kurz', 'bemerkung_historisch', 'beschreibung'];
 
     private const STEIN_FIELDS = [
         'verlegedatum', 'inschrift', 'wikidata_id_stein', 'osm_id',
-        'pos_x', 'pos_y', 'status', 'zustand',
+        'pos_x', 'pos_y', 'lat_override', 'lon_override',
+        'wikimedia_commons', 'foto_lizenz_autor', 'foto_lizenz_name', 'foto_lizenz_url',
+        'status', 'zustand',
     ];
 
     private PersonRepository $personRepo;
     private VerlegeortRepository $ortRepo;
     private StolpersteinRepository $steinRepo;
+    private AdresseRepository $adresseRepo;
+
+    // Stadtname aus konfiguration (gecacht)
+    private ?string $stadtName = null;
 
     public function __construct()
     {
-        $this->personRepo = new PersonRepository();
-        $this->ortRepo    = new VerlegeortRepository();
-        $this->steinRepo  = new StolpersteinRepository();
+        $this->personRepo  = new PersonRepository();
+        $this->ortRepo     = new VerlegeortRepository();
+        $this->steinRepo   = new StolpersteinRepository();
+        $this->adresseRepo = new AdresseRepository();
+    }
+
+    private function stadtName(): string
+    {
+        if ($this->stadtName === null) {
+            $pdo  = \Stolpersteine\Config\Database::connection();
+            $stmt = $pdo->prepare("SELECT wert FROM konfiguration WHERE schluessel = 'stadt_name' LIMIT 1");
+            $stmt->execute();
+            $this->stadtName = (string) ($stmt->fetchColumn() ?: 'Magdeburg');
+        }
+        return $this->stadtName;
+    }
+
+    // Extrahiert den reinen Dateinamen aus einer Wikimedia-Commons-URL oder File:-Angabe
+    // z.B. "https://commons.wikimedia.org/wiki/File:Foo.jpg" → "Foo.jpg"
+    //      "File:Foo.jpg"                                    → "Foo.jpg"
+    //      "Foo.jpg"                                         → "Foo.jpg"
+    private function normalizeCommonsDateiname(?string $wert): ?string
+    {
+        if ($wert === null || $wert === '') {
+            return null;
+        }
+
+        // URL-Form: .../File:Dateiname
+        if (str_contains($wert, '/File:')) {
+            $wert = substr($wert, strrpos($wert, '/File:') + 6);
+        }
+
+        // Präfix "File:" oder "Datei:"
+        if (preg_match('/^(?:File|Datei):/i', $wert)) {
+            $wert = preg_replace('/^(?:File|Datei):/i', '', $wert);
+        }
+
+        return trim($wert) ?: null;
+    }
+
+    // Löst Adressfelder zu einer adress_lokation_id auf (find-or-create)
+    private function resolveAdressLokation(array $data): ?int
+    {
+        if (empty($data['strasse_aktuell'])) {
+            return null;
+        }
+
+        $lokation = $this->adresseRepo->resolveOrCreate([
+            'strasse_name'         => $data['strasse_aktuell'],
+            'stadt_name'           => $this->stadtName(),
+            'stadtteil_name'       => $data['stadtteil']            ?? null,
+            'plz'                  => $data['plz_aktuell']          ?? null,
+            'wikidata_id_strasse'  => $data['wikidata_id_strasse']  ?? null,
+            'wikidata_id_stadtteil'=> $data['wikidata_id_stadtteil'] ?? null,
+        ]);
+
+        return $lokation ? (int) $lokation['lokation_id'] : null;
     }
 
     // Gibt die ersten Zeilen zurück, damit das Frontend das Spalten-Mapping anbieten kann
@@ -136,8 +202,21 @@ class ImportService
                     continue;
                 }
                 $col        = strtoupper(trim($mapping[$field]));
-                $cellValue  = $sheet->getCell($col . $rowNum)->getValue();
-                $data[$field] = $cellValue !== null ? trim((string) $cellValue) : null;
+                $cell      = $sheet->getCell($col . $rowNum);
+                $cellValue = $cell->getValue();
+                if ($cellValue instanceof \PhpOffice\PhpSpreadsheet\RichText\RichText) {
+                    $cellValue = $cellValue->getPlainText();
+                }
+                if (is_numeric($cellValue) && ExcelDate::isDateTime($cell)) {
+                    $cellValue = ExcelDate::excelToDateTimeObject((float) $cellValue)
+                                          ->format('Y-m-d');
+                } else {
+                    $cellValue = $cellValue !== null ? trim((string) $cellValue) : null;
+                    if ($cellValue !== null && in_array($field, self::HTML_STRIP_FIELDS, true)) {
+                        $cellValue = trim(strip_tags($cellValue)) ?: null;
+                    }
+                }
+                $data[$field] = $cellValue;
             }
 
             // Leerzeilen überspringen (kein Nachname vorhanden)
@@ -292,10 +371,19 @@ class ImportService
                 if ($existing) {
                     $locationCache[$locationKey] = $existing['id'];
                 } else {
-                    $ortId = $this->ortRepo->create(
-                        $this->extractFields($data, self::VERLEGEORT_FIELDS),
-                        $benutzer
+                    // Adresse normalisieren → adress_lokation_id ermitteln
+                    $adressLokationId = $this->resolveAdressLokation($data);
+
+                    $ortDaten = $this->extractFields($data, self::VERLEGEORT_FIELDS);
+                    // Felder entfernen, die VerlegeortRepository nicht kennt
+                    unset(
+                        $ortDaten['strasse_aktuell'],    $ortDaten['stadtteil'],
+                        $ortDaten['plz_aktuell'],        $ortDaten['wikidata_id_strasse'],
+                        $ortDaten['wikidata_id_stadtteil']
                     );
+                    $ortDaten['adress_lokation_id'] = $adressLokationId;
+
+                    $ortId = $this->ortRepo->create($ortDaten, $benutzer);
                     $locationCache[$locationKey] = $ortId;
                     $summary['neue_verlegeorte']++;
                     AuditRepository::log($benutzer, 'INSERT', 'verlegeorte', $ortId, null,
@@ -305,7 +393,23 @@ class ImportService
             $ortId = $locationCache[$locationKey];
 
             // Stolperstein anlegen
-            $steinData             = $this->extractFields($data, self::STEIN_FIELDS);
+            $steinData = $this->extractFields($data, self::STEIN_FIELDS);
+            $steinData['wikimedia_commons'] = $this->normalizeCommonsDateiname(
+                $steinData['wikimedia_commons'] ?? null
+            );
+
+            // ENUM-Werte absichern: ungültige Werte → null → Repository-Default greift
+            static $gueltigeStatus   = ['neu', 'validierung', 'freigegeben', 'archiviert',
+                                         'fehlerhaft', 'abgleich_wikipedia', 'abgleich_osm', 'abgleich_wikidata'];
+            static $gueltigeZustaende = ['verfuegbar', 'stein_fehlend', 'kein_stein', 'beschaedigt', 'unleserlich'];
+
+            if (!in_array($steinData['status']  ?? null, $gueltigeStatus,    true)) {
+                $steinData['status']  = null;
+            }
+            if (!in_array($steinData['zustand'] ?? null, $gueltigeZustaende, true)) {
+                $steinData['zustand'] = null;
+            }
+
             $steinData['person_id']     = $personId;
             $steinData['verlegeort_id'] = $ortId;
 

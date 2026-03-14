@@ -79,8 +79,7 @@ Liste aller Personen. Optional filterbar.
 
 | Parameter | Beschreibung |
 |---|---|
-| `nachname` | Teilsuche (LIKE) |
-| `geburtsname` | Teilsuche (LIKE) |
+| `name` | Teilsuche (LIKE) in Vorname, Nachname und Geburtsname (OR) |
 | `geburtsjahr` | Exakt (Jahr als Zahl) |
 
 **Antwort `200`:**
@@ -96,6 +95,7 @@ Liste aller Personen. Optional filterbar.
       "geburtsdatum": "1898-05-12",
       "sterbedatum": "1942-03-15",
       "biografie_kurz": null,
+      "wikipedia_name": null,
       "wikidata_id_person": null,
       "erstellt_am": "2025-01-01 10:00:00",
       "geaendert_am": "2025-01-01 10:00:00"
@@ -116,8 +116,11 @@ Neue Person anlegen. Erfordert Login.
   "vorname": "Anna",
   "geburtsname": null,
   "geburtsdatum": "1898-05-12",
+  "geburtsdatum_genauigkeit": "tag",
   "sterbedatum": "1942-03-15",
+  "sterbedatum_genauigkeit": "tag",
   "biografie_kurz": "Kurze Biografie.",
+  "wikipedia_name": null,
   "wikidata_id_person": "Q12345"
 }
 ```
@@ -194,6 +197,9 @@ Liste aller Verlegeorte. Optional filterbar.
       "plz_aktuell": "39104",
       "stadt": "Magdeburg",
       "wikidata_id_ort": "Q1733",
+      "bemerkung_historisch": null,
+      "adresse_alt": null,
+      "raster_beschreibung": null,
       "grid_n": null,
       "grid_m": null,
       "erstellt_am": "2025-01-01 10:00:00",
@@ -358,6 +364,101 @@ oder neu angelegte Lokation zurück.
 
 ---
 
+### `GET /api/adressen/staedte`
+Liste aller Städte. Erfordert Login.
+
+**Antwort `200`:** Array mit `{ id, name, wikidata_id }`
+
+---
+
+### `POST /api/adressen/staedte`  ·  `GET /api/adressen/staedte/{id}`  ·  `PUT /api/adressen/staedte/{id}`  ·  `DELETE /api/adressen/staedte/{id}`
+CRUD für Städte. Anlegen/Ändern/Löschen erfordert **Admin**.
+
+**Body (JSON):**
+```json
+{ "name": "Magdeburg", "wikidata_id": "Q1733" }
+```
+
+**Fehler DELETE:** `409` – Stadt hat verknüpfte Straßen/Stadtteile/PLZ
+
+---
+
+### `GET /api/adressen/alle-stadtteile?stadt_id=`
+Liste aller Stadtteile, optional nach `stadt_id` gefiltert. Erfordert Login.
+
+**Antwort `200`:** Array mit `{ id, name, wikidata_id, stadt_id, stadt_name }`
+
+---
+
+### `POST /api/adressen/alle-stadtteile`  ·  `GET /api/adressen/alle-stadtteile/{id}`  ·  `PUT /api/adressen/alle-stadtteile/{id}`  ·  `DELETE /api/adressen/alle-stadtteile/{id}`
+CRUD für Stadtteile. Anlegen/Ändern/Löschen erfordert **Admin**.
+
+**Body (JSON):**
+```json
+{ "name": "Altstadt", "stadt_id": 1, "wikidata_id": "Q445520" }
+```
+
+**Pflichtfelder:** `name`, `stadt_id`
+
+---
+
+### `GET /api/adressen/alle-strassen?stadt_id=&q=`
+Liste aller Straßen. Optional nach `stadt_id` und Suchbegriff `q` filterbar. Erfordert Login.
+
+**Antwort `200`:** Array mit `{ id, name, wikipedia_name, wikidata_id, stadt_id, stadt_name }`
+
+---
+
+### `POST /api/adressen/alle-strassen`  ·  `GET /api/adressen/alle-strassen/{id}`  ·  `PUT /api/adressen/alle-strassen/{id}`  ·  `DELETE /api/adressen/alle-strassen/{id}`
+CRUD für Straßen. Anlegen/Ändern/Löschen erfordert **Admin**.
+
+**Body (JSON):**
+```json
+{ "name": "Hegelstraße", "stadt_id": 1, "wikidata_id": "Q12345", "wikipedia_name": "Hegelstraße (Magdeburg)" }
+```
+
+**Pflichtfelder:** `name`, `stadt_id`
+
+---
+
+### `GET /api/adressen/alle-plz?stadt_id=`
+Liste aller PLZ-Einträge, optional nach `stadt_id` gefiltert. Erfordert Login.
+
+**Antwort `200`:** Array mit `{ id, plz, stadt_id, stadt_name }`
+
+---
+
+### `POST /api/adressen/alle-plz`  ·  `GET /api/adressen/alle-plz/{id}`  ·  `PUT /api/adressen/alle-plz/{id}`  ·  `DELETE /api/adressen/alle-plz/{id}`
+CRUD für PLZ. Anlegen/Ändern/Löschen erfordert **Admin**.
+
+**Body (JSON):**
+```json
+{ "plz": "39104", "stadt_id": 1 }
+```
+
+**Pflichtfelder:** `plz`, `stadt_id`
+
+---
+
+### `GET /api/adressen/alle-lokationen?strasse_id=&stadtteil_id=&plz_id=`
+Liste aller Adress-Lokationen (Verknüpfung Straße + Stadtteil + PLZ). Erfordert Login.
+
+---
+
+### `POST /api/adressen/alle-lokationen`  ·  `PUT /api/adressen/alle-lokationen/{id}`  ·  `DELETE /api/adressen/alle-lokationen/{id}`
+CRUD für Lokationen. Erfordert **Admin**.
+
+**Body (JSON):**
+```json
+{ "strasse_id": 1, "stadtteil_id": 2, "plz_id": 5 }
+```
+
+**Pflichtfelder:** `strasse_id`
+
+**Fehler DELETE:** `409` – Lokation wird von einem Verlegeort referenziert
+
+---
+
 ## Stolpersteine
 
 ### `GET /api/stolpersteine`
@@ -367,6 +468,7 @@ Liste aller Stolpersteine. Optional filterbar.
 
 | Parameter | Beschreibung |
 |---|---|
+| `name` | Teilsuche (LIKE) in Vorname, Nachname und Geburtsname der verknüpften Person (OR) |
 | `status` | Exakt: `neu`, `validierung`, `freigegeben`, `archiviert`, `fehlerhaft`, `abgleich_wikipedia`, `abgleich_osm`, `abgleich_wikidata` |
 | `zustand` | Exakt: `verfuegbar`, `stein_fehlend`, `kein_stein`, `beschaedigt`, `unleserlich` |
 | `stadtteil` | Teilsuche (LIKE) |
@@ -756,8 +858,8 @@ Lädt eine Datei hoch und gibt eine Spaltenvorschau zurück, um das Mapping-UI z
     ],
     "felder": {
       "person":     ["nachname", "vorname", "geburtsname", "geburtsdatum", "sterbedatum", "biografie_kurz", "wikidata_id_person"],
-      "verlegeort": ["strasse_aktuell", "hausnummer_aktuell", "stadtteil", "plz_aktuell", "lat", "lon", "bemerkung_historisch", "grid_n", "grid_m"],
-      "stein":      ["verlegedatum", "inschrift", "wikidata_id_stein", "osm_id", "pos_x", "pos_y", "status", "zustand"]
+      "verlegeort": ["strasse_aktuell", "hausnummer_aktuell", "stadtteil", "plz_aktuell", "wikidata_id_strasse", "wikidata_id_stadtteil", "lat", "lon", "beschreibung", "bemerkung_historisch", "grid_n", "grid_m"],
+      "stein":      ["verlegedatum", "inschrift", "wikidata_id_stein", "osm_id", "pos_x", "pos_y", "lat_override", "lon_override", "wikimedia_commons", "foto_lizenz_autor", "foto_lizenz_name", "foto_lizenz_url", "status", "zustand"]
     }
   }
 }

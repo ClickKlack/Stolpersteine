@@ -1,25 +1,18 @@
 meta {
-  name: Stolpersteine – Liste
+  name: Adressen – Straßen Liste
   type: http
-  seq: 1
+  seq: 5
 }
 
 get {
-  url: {{baseUrl}}/stolpersteine
+  url: {{baseUrl}}/adressen/alle-strassen
   body: none
   auth: none
 }
 
 query {
-  name:
-  status:
-  zustand:
-  stadtteil:
-  strasse:
-  person_id:
-  verlegeort_id:
-  foto_status:
-  ohne_wikidata:
+  stadt_id:
+  q:
 }
 
 tests {

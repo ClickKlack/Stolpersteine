@@ -1,0 +1,40 @@
+meta {
+  name: Adressen – Lokation auflösen (find-or-create)
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/adressen/lokationen
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "strasse_name": "Hegelstraße",
+    "wikidata_id_strasse": null,
+    "stadtteil_name": "Altstadt",
+    "wikidata_id_stadtteil": null,
+    "plz": "39104",
+    "stadt_name": "Magdeburg",
+    "wikidata_id_ort": "Q1733"
+  }
+}
+
+script:post-response {
+  if (res.status === 200) {
+    bru.setVar("adressLokationId", res.body.data.lokation_id);
+  }
+}
+
+tests {
+  test("Status 200", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.data.lokation_id).to.be.a("number");
+  });
+}

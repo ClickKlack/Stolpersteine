@@ -39,7 +39,7 @@ class PersonRepository
         $sql = 'SELECT id, vorname, nachname, geburtsname,
                        geburtsdatum, geburtsdatum_genauigkeit,
                        sterbedatum, sterbedatum_genauigkeit,
-                       biografie_kurz, wikidata_id_person, erstellt_am, geaendert_am
+                       biografie_kurz, wikipedia_name, wikidata_id_person, erstellt_am, geaendert_am
                 FROM personen';
 
         if ($where !== []) {
@@ -57,7 +57,7 @@ class PersonRepository
     {
         $stmt = $this->pdo->prepare(
             'SELECT id, vorname, nachname, geburtsname, geburtsdatum, sterbedatum,
-                    biografie_kurz, wikidata_id_person
+                    biografie_kurz, wikipedia_name, wikidata_id_person
              FROM personen
              WHERE LOWER(nachname) = LOWER(?)
                AND (? IS NULL OR LOWER(vorname) = LOWER(?))
@@ -74,7 +74,7 @@ class PersonRepository
             'SELECT id, vorname, nachname, geburtsname,
                     geburtsdatum, geburtsdatum_genauigkeit,
                     sterbedatum, sterbedatum_genauigkeit,
-                    biografie_kurz, wikidata_id_person,
+                    biografie_kurz, wikipedia_name, wikidata_id_person,
                     erstellt_am, erstellt_von, geaendert_am, geaendert_von
              FROM personen
              WHERE id = ?'
@@ -91,8 +91,8 @@ class PersonRepository
                 (vorname, nachname, geburtsname,
                  geburtsdatum, geburtsdatum_genauigkeit,
                  sterbedatum, sterbedatum_genauigkeit,
-                 biografie_kurz, wikidata_id_person, erstellt_von, geaendert_von)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                 biografie_kurz, wikipedia_name, wikidata_id_person, erstellt_von, geaendert_von)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
 
         $stmt->execute([
@@ -104,6 +104,7 @@ class PersonRepository
             $data['sterbedatum']                 ?? null,
             $data['sterbedatum_genauigkeit']     ?? null,
             $data['biografie_kurz']              ?? null,
+            $data['wikipedia_name']              ?? null,
             $data['wikidata_id_person']          ?? null,
             $benutzer,
             $benutzer,
@@ -124,6 +125,7 @@ class PersonRepository
                 sterbedatum                 = ?,
                 sterbedatum_genauigkeit     = ?,
                 biografie_kurz              = ?,
+                wikipedia_name              = ?,
                 wikidata_id_person          = ?,
                 geaendert_von               = ?
              WHERE id = ?'
@@ -138,6 +140,7 @@ class PersonRepository
             $data['sterbedatum']                 ?? null,
             $data['sterbedatum_genauigkeit']     ?? null,
             $data['biografie_kurz']              ?? null,
+            $data['wikipedia_name']              ?? null,
             $data['wikidata_id_person']          ?? null,
             $benutzer,
             $id,

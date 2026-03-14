@@ -26,6 +26,7 @@ class StolpersteineHandler extends BaseHandler
         Auth::required();
 
         $filter = array_filter([
+            'name'           => $this->queryParam('name'),
             'status'         => $this->queryParam('status'),
             'zustand'        => $this->queryParam('zustand'),
             'stadtteil'      => $this->queryParam('stadtteil'),

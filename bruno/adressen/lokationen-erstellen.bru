@@ -1,0 +1,30 @@
+meta {
+  name: Adressen – Lokation erstellen
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/adressen/alle-lokationen
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "strasse_id": 1,
+    "stadtteil_id": null,
+    "plz_id": null
+  }
+}
+
+tests {
+  test("Status 200", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.data.strasse_id).to.be.a("number");
+  });
+}

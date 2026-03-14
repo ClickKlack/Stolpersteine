@@ -446,6 +446,76 @@ tr.tr-clickable:hover td {
     color: #333 !important;
 }
 
+/* ----- Import-Wizard -------------------------------------- */
+.wizard-steps {
+    display: flex;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.wizard-step {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    opacity: 0.35;
+    transition: opacity 0.2s;
+}
+
+.wizard-step.done,
+.wizard-step.current {
+    opacity: 1;
+}
+
+.wizard-step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 50%;
+    background: var(--pico-secondary-background);
+    font-weight: 600;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+}
+
+.wizard-step.current .wizard-step-num {
+    background: var(--pico-primary);
+    color: var(--pico-primary-inverse);
+}
+
+.wizard-step-label {
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.wizard-connector {
+    flex: 1;
+    height: 2px;
+    background: var(--pico-secondary-background);
+    margin: 0 0.5rem;
+    min-width: 1rem;
+}
+
+.mapping-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 0.6rem 1rem;
+}
+
+.mapping-row label {
+    display: block;
+    margin-bottom: 0.2rem;
+    font-size: 0.85rem;
+    color: var(--pico-muted-color);
+}
+
+.mapping-row select {
+    margin: 0;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.875rem;
+}
+
 /* ----- Placeholder für zukünftige Seiten ------------------ */
 .page-placeholder {
     padding: 3rem 0;

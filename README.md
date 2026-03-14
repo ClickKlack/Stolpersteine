@@ -70,7 +70,8 @@ Vollständige Dokumentation aller Endpunkte: [backend/API.md](backend/API.md)
 | Auth | `POST /auth/login`, `POST /auth/logout`, `GET /auth/me` |
 | Personen | `GET/POST /personen`, `GET/PUT/DELETE /personen/{id}` |
 | Verlegeorte | `GET/POST /verlegeorte`, `GET/PUT/DELETE /verlegeorte/{id}` |
-| Adressen | `GET /adressen/strassen`, `GET /adressen/stadtteile`, `POST /adressen/lokationen` |
+| Adressen (Lookup) | `GET /adressen/strassen`, `GET /adressen/stadtteile`, `POST /adressen/lokationen` |
+| Adressen (CRUD) | `GET/POST /adressen/staedte`, `…/alle-stadtteile`, `…/alle-strassen`, `…/alle-plz`, `…/alle-lokationen` |
 | Stolpersteine | `GET/POST /stolpersteine`, `GET/PUT/DELETE /stolpersteine/{id}` |
 | Fotos | `POST /stolpersteine/{id}/foto/upload`, `POST /stolpersteine/{id}/foto/commons-import`, `DELETE /stolpersteine/{id}/foto`, `GET /stolpersteine/{id}/foto/vergleich` |
 | Dokumente | `GET/POST /dokumente`, `GET/DELETE /dokumente/{id}` |
@@ -131,7 +132,7 @@ Siehe [projekt_solptersteine.md](projekt_solptersteine.md) für die vollständig
 - ✅ Phase 1 – Fundament (Auth, CRUD, Audit-Log)
 - ✅ Phase 2 – Dateien & Dokumente
 - ✅ Phase 3 – Volltextsuche & Filter
-- ✅ Phase 4 – Excel/CSV-Import
+- ✅ Phase 4 – Excel/CSV-Import (inkl. RichText, HTML-Stripping, vollständiges Feld-Mapping)
 - ⬜ Phase 5 – Templates & Exporte
 - ⬜ Phase 6 – Externe Validierung (Wikidata/OSM)
-- 🔄 Phase 7 – Frontend (Personen ✅, Verlegeorte ✅, Stolpersteine ✅, Adress-Normalisierung ✅, Grid-Positionierung ✅, Foto-Verwaltung ✅, Koordinaten-Overrides ✅)
+- 🔄 Phase 7 – Frontend (Personen ✅, Verlegeorte ✅, Stolpersteine ✅, Adress-Normalisierung ✅, Adress-CRUD-Verwaltung ✅, Grid-Positionierung ✅, Foto-Verwaltung ✅, Koordinaten-Overrides ✅, Import-Wizard ✅)

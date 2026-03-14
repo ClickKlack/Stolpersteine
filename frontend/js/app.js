@@ -65,7 +65,7 @@ document.addEventListener('alpine:init', () => {
         current: 'dashboard',
 
         // Alle bekannten Seiten
-        pages: ['dashboard', 'personen', 'stolpersteine', 'verlegeorte', 'dokumente', 'suche', 'import', 'benutzerverwaltung', 'profil'],
+        pages: ['dashboard', 'personen', 'stolpersteine', 'verlegeorte', 'dokumente', 'suche', 'import', 'adressen', 'benutzerverwaltung', 'profil'],
 
         init() {
             this._sync();
