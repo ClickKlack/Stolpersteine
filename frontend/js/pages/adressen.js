@@ -15,12 +15,12 @@ document.addEventListener('alpine:init', () => {
         strassen:    [],
         plzListe:    [],
 
-        // Filter Lokationen
+        // Filter Lokationen (IDs für API-Call)
         filterStadtteilId: '',
         filterStrasseId:   '',
         filterPlzId:       '',
 
-        // Suchfelder
+        // Suchfelder für Stadtteile / Straßen / PLZ Tabs
         searchStadtteil: '',
         searchStrasse:   '',
         searchPlz:       '',
@@ -36,6 +36,54 @@ document.addEventListener('alpine:init', () => {
         get filteredPlzListe() {
             const q = this.searchPlz.toLowerCase();
             return q ? this.plzListe.filter(p => p.plz.toLowerCase().includes(q) || (p.stadt_name || '').toLowerCase().includes(q)) : this.plzListe;
+        },
+
+        // Tipp-Suchfelder Lokationen-Filterleiste
+        filterStadtId:    '',
+        filterStadtteilQ: '',
+        filterStrasseQ:   '',
+        filterPlzQ:       '',
+        filterLokOpen:    { stadtteil: false, strasse: false, plz: false },
+
+        get filterStadtteileOpts() {
+            let list = this.stadtteile;
+            if (this.filterStadtId) list = list.filter(st => String(st.stadt_id) === String(this.filterStadtId));
+            const q = this.filterStadtteilQ.toLowerCase();
+            return (q ? list.filter(st => st.name.toLowerCase().includes(q)) : list).slice(0, 30);
+        },
+        get filterStrassenOpts() {
+            let list = this.strassen;
+            if (this.filterStadtId) list = list.filter(s => String(s.stadt_id) === String(this.filterStadtId));
+            const q = this.filterStrasseQ.toLowerCase();
+            return (q ? list.filter(s => s.name.toLowerCase().includes(q)) : list).slice(0, 30);
+        },
+        get filterPlzOpts() {
+            let list = this.plzListe;
+            if (this.filterStadtId) list = list.filter(p => String(p.stadt_id) === String(this.filterStadtId));
+            const q = this.filterPlzQ.toLowerCase();
+            return (q ? list.filter(p => p.plz.includes(q)) : list).slice(0, 30);
+        },
+
+        // Tipp-Suchfelder Edit-Modal (Lokationen)
+        editStrasseQ:   '',
+        editStadtteilQ: '',
+        editPlzQ:       '',
+        editLokOpen:    { strasse: false, stadtteil: false, plz: false },
+
+        get editStrassenOpts() {
+            const q = this.editStrasseQ.toLowerCase();
+            const list = q ? this.strassen.filter(s => s.name.toLowerCase().includes(q) || (s.stadt_name || '').toLowerCase().includes(q)) : this.strassen;
+            return list.slice(0, 20);
+        },
+        get editStadtteileOpts() {
+            const q = this.editStadtteilQ.toLowerCase();
+            const list = q ? this.stadtteile.filter(st => st.name.toLowerCase().includes(q) || (st.stadt_name || '').toLowerCase().includes(q)) : this.stadtteile;
+            return list.slice(0, 20);
+        },
+        get editPlzOpts() {
+            const q = this.editPlzQ.toLowerCase();
+            const list = q ? this.plzListe.filter(p => p.plz.includes(q) || (p.stadt_name || '').toLowerCase().includes(q)) : this.plzListe;
+            return list.slice(0, 20);
         },
 
         // Modal: 'edit' | 'delete' | null
@@ -116,6 +164,94 @@ document.addEventListener('alpine:init', () => {
         },
 
         // ---------------------------------------------------------------
+        // Filter-Lookups Lokationen-Filterleiste
+        // ---------------------------------------------------------------
+
+        selectFilterStadtteil(st) {
+            this.filterStadtteilId       = st.id;
+            this.filterStadtteilQ        = st.name;
+            this.filterLokOpen.stadtteil = false;
+            this._loadLokationen();
+        },
+        clearFilterStadtteil() {
+            this.filterStadtteilId       = '';
+            this.filterStadtteilQ        = '';
+            this.filterLokOpen.stadtteil = false;
+            this._loadLokationen();
+        },
+
+        selectFilterStrasse(s) {
+            this.filterStrasseId       = s.id;
+            this.filterStrasseQ        = s.name;
+            this.filterLokOpen.strasse = false;
+            this._loadLokationen();
+        },
+        clearFilterStrasse() {
+            this.filterStrasseId       = '';
+            this.filterStrasseQ        = '';
+            this.filterLokOpen.strasse = false;
+            this._loadLokationen();
+        },
+
+        selectFilterPlz(p) {
+            this.filterPlzId       = p.id;
+            this.filterPlzQ        = p.plz;
+            this.filterLokOpen.plz = false;
+            this._loadLokationen();
+        },
+        clearFilterPlz() {
+            this.filterPlzId       = '';
+            this.filterPlzQ        = '';
+            this.filterLokOpen.plz = false;
+            this._loadLokationen();
+        },
+
+        onFilterStadtChange() {
+            // Stadt gewechselt → abhängige Filter zurücksetzen
+            this.clearFilterStadtteil();
+            this.clearFilterStrasse();
+            this.clearFilterPlz();
+        },
+
+        // ---------------------------------------------------------------
+        // Edit-Lookups (Lokationen-Modal)
+        // ---------------------------------------------------------------
+
+        selectEditStrasse(s) {
+            this.editObj.strasse_id   = s.id;
+            this.editStrasseQ         = s.name + (s.stadt_name ? ' (' + s.stadt_name + ')' : '');
+            this.editLokOpen.strasse  = false;
+        },
+        selectEditStadtteil(st) {
+            this.editObj.stadtteil_id   = st.id;
+            this.editStadtteilQ         = st.name + (st.stadt_name ? ' (' + st.stadt_name + ')' : '');
+            this.editLokOpen.stadtteil  = false;
+        },
+        clearEditStadtteil() {
+            this.editObj.stadtteil_id = '';
+            this.editStadtteilQ       = '';
+        },
+        selectEditPlz(p) {
+            this.editObj.plz_id   = p.id;
+            this.editPlzQ         = p.plz + (p.stadt_name ? ' (' + p.stadt_name + ')' : '');
+            this.editLokOpen.plz  = false;
+        },
+        clearEditPlz() {
+            this.editObj.plz_id = '';
+            this.editPlzQ       = '';
+        },
+
+        _initEditLokLookups(obj) {
+            const str = this.strassen.find(s => s.id == obj.strasse_id);
+            this.editStrasseQ = str ? str.name + (str.stadt_name ? ' (' + str.stadt_name + ')' : '') : '';
+            const st = this.stadtteile.find(s => s.id == obj.stadtteil_id);
+            this.editStadtteilQ = st ? st.name + (st.stadt_name ? ' (' + st.stadt_name + ')' : '') : '';
+            const p = this.plzListe.find(p => p.id == obj.plz_id);
+            this.editPlzQ = p ? p.plz + (p.stadt_name ? ' (' + p.stadt_name + ')' : '') : '';
+            this.editLokOpen = { strasse: false, stadtteil: false, plz: false };
+        },
+
+        // ---------------------------------------------------------------
         // Create
         // ---------------------------------------------------------------
 
@@ -124,12 +260,18 @@ document.addEventListener('alpine:init', () => {
             this.modalFehler = null;
             const defaults = {
                 staedte:    { name: '', wikidata_id: '' },
-                stadtteile: { name: '', stadt_id: this.staedte[0]?.id ?? '', wikidata_id: '', wikipedia_name: '' },
+                stadtteile: { name: '', stadt_id: this.staedte[0]?.id ?? '', wikidata_id: '', wikipedia_stadtteil: '', wikipedia_stolpersteine: '' },
                 strassen:   { name: '', stadt_id: this.staedte[0]?.id ?? '', wikidata_id: '', wikipedia_name: '' },
                 plz:        { plz: '',  stadt_id: this.staedte[0]?.id ?? '' },
                 lokationen: { strasse_id: '', stadtteil_id: '', plz_id: '' },
             };
             this.editObj = { ...(defaults[this.sub] ?? {}) };
+            if (this.sub === 'lokationen') {
+                this.editStrasseQ   = '';
+                this.editStadtteilQ = '';
+                this.editPlzQ       = '';
+                this.editLokOpen    = { strasse: false, stadtteil: false, plz: false };
+            }
             this.modal   = 'edit';
         },
 
@@ -142,6 +284,9 @@ document.addEventListener('alpine:init', () => {
             this.editObj     = { ...obj };
             this.modalFehler = null;
             this.modal       = 'edit';
+            if (this.sub === 'lokationen') {
+                this._initEditLokLookups(obj);
+            }
         },
 
         async saveEdit() {
@@ -150,7 +295,7 @@ document.addEventListener('alpine:init', () => {
             try {
                 const bodies = {
                     staedte:    { name: this.editObj.name,  wikidata_id: this.editObj.wikidata_id || null },
-                    stadtteile: { name: this.editObj.name,  stadt_id: this.editObj.stadt_id, wikidata_id: this.editObj.wikidata_id || null, wikipedia_name: this.editObj.wikipedia_name || null },
+                    stadtteile: { name: this.editObj.name,  stadt_id: this.editObj.stadt_id, wikidata_id: this.editObj.wikidata_id || null, wikipedia_stadtteil: this.editObj.wikipedia_stadtteil || null, wikipedia_stolpersteine: this.editObj.wikipedia_stolpersteine || null },
                     strassen:   { name: this.editObj.name,  stadt_id: this.editObj.stadt_id, wikidata_id: this.editObj.wikidata_id || null, wikipedia_name: this.editObj.wikipedia_name || null },
                     plz:        { plz:  this.editObj.plz,   stadt_id: this.editObj.stadt_id },
                     lokationen: { strasse_id: this.editObj.strasse_id, stadtteil_id: this.editObj.stadtteil_id || null, plz_id: this.editObj.plz_id || null },

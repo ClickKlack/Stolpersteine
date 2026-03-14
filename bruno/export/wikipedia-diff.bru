@@ -1,0 +1,23 @@
+meta {
+  name: Export – Wikipedia Diff (lokal vs. live)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/export/wikipedia/diff
+  body: none
+  auth: none
+}
+
+query {
+  stadtteil_id: 1
+}
+
+tests {
+  test("Status 200", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.data).to.have.property("lokal");
+    expect(res.body.data).to.have.property("seitenname");
+  });
+}

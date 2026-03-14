@@ -93,7 +93,9 @@ CREATE TABLE IF NOT EXISTS staedte (
 CREATE TABLE IF NOT EXISTS stadtteile (
     id              INT             NOT NULL AUTO_INCREMENT,
     name            VARCHAR(100)    NOT NULL,
-    wikidata_id     VARCHAR(50),
+    wikidata_id             VARCHAR(50),
+    wikipedia_stadtteil     VARCHAR(255)        COMMENT 'Titel des Wikipedia-Artikels über diesen Stadtteil',
+    wikipedia_stolpersteine VARCHAR(255)        COMMENT 'Titel der Wikipedia-Stolperstein-Listenseite für diesen Stadtteil',
     stadt_id        INT             NOT NULL,
     PRIMARY KEY (id),
     CONSTRAINT fk_stadtteil_stadt FOREIGN KEY (stadt_id) REFERENCES staedte(id) ON UPDATE CASCADE,

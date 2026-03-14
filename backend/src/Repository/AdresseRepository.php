@@ -290,7 +290,7 @@ class AdresseRepository
             $params[] = (int) $filter['stadt_id'];
         }
 
-        $sql = 'SELECT st.id, st.name, st.wikidata_id,
+        $sql = 'SELECT st.id, st.name, st.wikidata_id, st.wikipedia_stadtteil, st.wikipedia_stolpersteine,
                        sta.id AS stadt_id, sta.name AS stadt_name,
                        (SELECT COUNT(*) FROM adress_lokationen WHERE stadtteil_id = st.id) AS anzahl_lokationen
                 FROM stadtteile st
@@ -309,7 +309,7 @@ class AdresseRepository
     public function findStadtteilById(int $id): ?array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT st.id, st.name, st.wikidata_id, st.stadt_id, sta.name AS stadt_name
+            'SELECT st.id, st.name, st.wikidata_id, st.wikipedia_stadtteil, st.wikipedia_stolpersteine, st.stadt_id, sta.name AS stadt_name
              FROM stadtteile st
              JOIN staedte sta ON sta.id = st.stadt_id
              WHERE st.id = ?'
@@ -319,12 +319,12 @@ class AdresseRepository
         return $row ?: null;
     }
 
-    public function updateStadtteil(int $id, string $name, int $stadtId, ?string $wikidataId): bool
+    public function updateStadtteil(int $id, string $name, int $stadtId, ?string $wikidataId, ?string $wikipediaStadtteil = null, ?string $wikipediaStolpersteine = null): bool
     {
         $stmt = $this->pdo->prepare(
-            'UPDATE stadtteile SET name = ?, stadt_id = ?, wikidata_id = ? WHERE id = ?'
+            'UPDATE stadtteile SET name = ?, stadt_id = ?, wikidata_id = ?, wikipedia_stadtteil = ?, wikipedia_stolpersteine = ? WHERE id = ?'
         );
-        $stmt->execute([$name, $stadtId, $wikidataId ?: null, $id]);
+        $stmt->execute([$name, $stadtId, $wikidataId ?: null, $wikipediaStadtteil ?: null, $wikipediaStolpersteine ?: null, $id]);
         return $stmt->rowCount() > 0;
     }
 

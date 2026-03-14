@@ -13,6 +13,14 @@ Entwickelt für Magdeburg, konfigurierbar für andere Städte.
 - Composer
 - Node.js (optional, für Bruno CLI)
 
+## PHP-Abhängigkeiten
+
+Die folgenden Pakete werden über [Composer](https://getcomposer.org/) installiert (`composer install` im Verzeichnis `backend/`):
+
+| Paket | Version | Zweck |
+|---|---|---|
+| `phpoffice/phpspreadsheet` | ^5.5 | Excel/CSV-Import (`.xlsx`, `.csv`) |
+
 ---
 
 ## Installation
@@ -77,6 +85,8 @@ Vollständige Dokumentation aller Endpunkte: [backend/API.md](backend/API.md)
 | Dokumente | `GET/POST /dokumente`, `GET/DELETE /dokumente/{id}` |
 | Suche | `GET /suche` |
 | Import | `POST /import/analyze`, `POST /import/preview`, `POST /import/execute` |
+| Export | `GET /export/wikipedia`, `GET /export/wikipedia/diff` |
+| Templates | `GET /templates`, `GET/PUT /templates/{id}` |
 | Konfiguration | `GET /konfiguration` |
 
 ---
@@ -122,6 +132,7 @@ bru run bruno/ --env local --recursive
 | Erstellen / Aktualisieren | ✅ | ✅ |
 | Löschen (Personen, Orte, Steine) | ❌ | ✅ |
 | Löschen (Dokumente) | ✅ | ✅ |
+| Export & Templates | ❌ | ✅ |
 
 ---
 
@@ -133,6 +144,6 @@ Siehe [projekt_solptersteine.md](projekt_solptersteine.md) für die vollständig
 - ✅ Phase 2 – Dateien & Dokumente
 - ✅ Phase 3 – Volltextsuche & Filter
 - ✅ Phase 4 – Excel/CSV-Import (inkl. RichText, HTML-Stripping, vollständiges Feld-Mapping)
-- ⬜ Phase 5 – Templates & Exporte
+- ✅ Phase 5 – Wikipedia-Export & Abgleich (Templates, Wikitext-Generierung, Live-Diff, Zeichen-Hervorhebung)
 - ⬜ Phase 6 – Externe Validierung (Wikidata/OSM)
-- 🔄 Phase 7 – Frontend (Personen ✅, Verlegeorte ✅, Stolpersteine ✅, Adress-Normalisierung ✅, Adress-CRUD-Verwaltung ✅, Grid-Positionierung ✅, Foto-Verwaltung ✅, Koordinaten-Overrides ✅, Import-Wizard ✅)
+- 🔄 Phase 7 – Frontend (Personen ✅, Verlegeorte ✅, Stolpersteine ✅, Adress-Normalisierung ✅, Adress-CRUD-Verwaltung ✅, Grid-Positionierung ✅, Foto-Verwaltung ✅, Koordinaten-Overrides ✅, Import-Wizard ✅, Export-Seite ✅)

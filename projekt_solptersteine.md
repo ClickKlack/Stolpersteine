@@ -112,7 +112,7 @@ Straßen, Stadtteile, PLZ und Städte werden in eigenen Tabellen verwaltet und �
 Bridge-Entität `adress_lokationen` verknüpft. `verlegeorte` hält nur eine FK darauf.
 
 - `staedte` – `id`, `name` (UNIQUE), `wikidata_id`
-- `stadtteile` – `id`, `name`, `wikidata_id`, `stadt_id` FK (UNIQUE `name + stadt_id`)
+- `stadtteile` – `id`, `name`, `wikidata_id`, `wikipedia_stadtteil`, `wikipedia_stolpersteine`, `stadt_id` FK
 - `strassen` – `id`, `name`, `wikipedia_name`, `wikidata_id`, `stadt_id` FK (UNIQUE `name + stadt_id`)
 - `plz` – `id`, `plz`, `stadt_id` FK (UNIQUE `plz + stadt_id`)
 - `adress_lokationen` – `id`, `strasse_id` FK, `stadtteil_id` FK (nullable), `plz_id` FK (nullable)
@@ -145,18 +145,21 @@ Stolpersteine/
 │   │   │   ├── KonfigurationHandler.php  # GET /konfiguration
 │   │   │   ├── SucheHandler.php
 │   │   │   ├── ImportHandler.php     # POST /api/import/analyze|preview|execute
-│   │   │   └── ExportHandler.php     # (Phase 5, noch nicht implementiert)
+│   │   │   ├── ExportHandler.php     # GET /export/wikipedia, GET /export/wikipedia/diff
+│   │   │   └── TemplateHandler.php   # GET/PUT /templates, GET /templates/{id}
 │   │   ├── Repository/
 │   │   │   ├── AuditRepository.php   # Zentrales Audit-Log
 │   │   │   ├── PersonRepository.php
 │   │   │   ├── VerlegeortRepository.php  # JOINs auf adress_lokationen
 │   │   │   ├── AdresseRepository.php     # find-or-create für Adress-Normalisierung
 │   │   │   ├── StolpersteinRepository.php
-│   │   │   └── DokumentRepository.php
+│   │   │   ├── DokumentRepository.php
+│   │   │   └── TemplateRepository.php    # Templates mit Versionierung
 │   │   ├── Service/
 │   │   │   ├── DateiService.php      # Datei-Upload, Duplikat-Check via SHA-256
 │   │   │   ├── ImportService.php     # Excel/CSV-Import, Dry-Run, Duplikat-Erkennung
-│   │   │   └── SuchindexService.php  # Suchindex aufbauen/aktualisieren
+│   │   │   ├── SuchindexService.php  # Suchindex aufbauen/aktualisieren
+│   │   │   └── ExportService.php     # Wikitext-Generierung, MediaWiki-API-Diff
 │   │   ├── Auth/
 │   │   │   └── Auth.php     # Session, Login, Rollen-Guards
 │   │   └── Config/
@@ -181,7 +184,8 @@ Stolpersteine/
 │           ├── dashboard.js     # Übersichts-Statistiken
 │           ├── personen.js      # Personen-CRUD (Liste, Filter, Modal, Löschen)
 │           ├── verlegeorte.js   # Verlegeorte-CRUD + Adress-Lookup + Karte + Grid-Konfig
-│           └── stolpersteine.js # Stolpersteine-CRUD + Grid-Picker + Foto + Karte
+│           ├── stolpersteine.js # Stolpersteine-CRUD + Grid-Picker + Foto + Karte
+│           └── export.js        # Export-Seite: Wikipedia, Templates, Diff-Ansicht
 │
 ├── bruno/                   # Bruno API-Collection (versioniert)
 │   ├── bruno.json
@@ -194,7 +198,9 @@ Stolpersteine/
 │   │   └── foto/            # Upload, Commons-Import, Löschen, Vergleich
 │   ├── dokumente/
 │   ├── suche/
-│   └── import/
+│   ├── import/
+│   ├── export/
+│   └── templates/
 │
 ├── uploads/                 # Fotos, PDFs (außerhalb public/, nicht im Git)
 ├── backend/API.md           # Vollständige Endpunkt-Dokumentation
@@ -227,17 +233,39 @@ Beispiele:
 
 ## 4. Externe Systeme & Synchronisation
 
-### 4.1 Wikipedia
-**Source of Truth: internes System**
+### 4.1 Wikipedia-Export und Abgleich
 
-- Export von Wikipedia-Markup (Tabellenzeilen)
-- Halbmanuelle Übernahme durch Admin
-- Diff-Funktion:
-  - Einlesen der bestehenden Seite
-  - Feldweiser Vergleich
-  - Selektive Übernahme einzelner Werte
+**Grundprinzip:** Das interne System ist die „Source of Truth". Wikipedia ist das Ausgabemedium. Der Abgleich dient dazu, externe Änderungen in Wikipedia zu erkennen und selektiv zu übernehmen — nicht umgekehrt.
+
+#### Export
+- Für jeden **Stadtteil** wird eine eigene Wikipedia-Seite erzeugt
+- Innerhalb der Seite sind die Einträge nach **Nachname, Vorname** sortiert
+- Das Ausgabeformat orientiert sich an der Wikipedia-Vorlage für Stolpersteine (wikitable)
+- Ein konfigurierbares Template (gespeichert in der Tabelle `templates`, `zielsystem = 'wikipedia'`) besteht aus zwei Teilen:
+  - **Seitenvorlage**: umschließender Wikitext der gesamten Seite (Einleitung, Tabellenrahmen, Abschluss) mit Platzhaltern
+  - **Zeilenvorlage**: Markup für genau eine Datenzeile (eine Person / ein Stein) mit Platzhaltern
+- Der Export erzeugt vollständigen Wikitext, der direkt in eine Wikipedia-Seite übernommen werden kann
+
+#### Abgleich (Diff-Funktion)
+Ziel: Erkennen, ob seit dem letzten Export sinnvolle Änderungen in Wikipedia stattgefunden haben (z. B. neue Fotos, korrigierte Daten, ergänzte Wikidata-IDs), die in die internen Daten übernommen werden sollten.
+
+Ablauf:
+1. Die aktuelle Wikipedia-Seite wird per **MediaWiki API** eingelesen und geparst
+2. Die exportierten Daten aus dem internen System werden mit dem Wikipedia-Ist-Stand **zeilenweise verglichen**
+3. Unterschiede werden **feldweise hervorgehoben** (ähnlich einem Diff-Tool: alt/neu nebeneinander)
+4. Der Benutzer entscheidet pro Unterschied, ob er den Wikipedia-Wert ins System übernimmt, verwirft oder ignoriert
+
+Technische Randbedingungen:
+- Wikipedia-Tabellen haben keine stabilen IDs; die Zuordnung erfolgt über **Nachname + Vorname** der Person
+- Felder, die im internen System als „kanonisch" gelten (z. B. Koordinaten, Status), werden beim Abgleich nur angezeigt, nicht automatisch überschrieben
+- Der Abgleich ist rein lesend; Schreibzugriffe auf Wikipedia sind nicht vorgesehen
+
+#### Konfiguration
+- Der Wikipedia-Seitenname für den Abgleich wird am Stadtteil-Datensatz (`stadtteile.wikipedia_stolpersteine`) hinterlegt; der allgemeine Stadtteil-Artikel unter `wikipedia_stadtteil`
 
 ### 4.2 Wikidata/OSM-Validierung
+*(Vorgesehen, noch nicht implementiert)*
+
 Mehrstufig:
 
 - **Syntax-Check** (Format korrekt?)
@@ -252,33 +280,47 @@ Ergebnisse werden in `validierungen` gespeichert.
 
 ### 5.1 Templates (`templates`)
 - `id` INT PK AI
-- `name` VARCHAR(100)
+- `name` VARCHAR(100) — `seite` oder `zeile`
 - `version` INT
 - `zielsystem` ENUM('wikipedia','osm','json','csv')
 - `inhalt` LONGTEXT
+- `aktiv` TINYINT(1) — 1 = aktuelle Version
+- `erstellt_von`, `geaendert_von` VARCHAR(100)
 
 ### 5.2 Platzhalter
-**Person**
+
+**Seite (Seitenebene)**
+- `[[SEITE.STADTTEIL]]` – Stadtteilname
+- `[[SEITE.STADTTEIL_WIKIDATA]]` – Wikidata-ID des Stadtteils
+- `[[SEITE.STADTTEIL_WIKIPEDIA]]` – Wikipedia-Artikeltitel des Stadtteils
+- `[[SEITE.STADTTEIL_WIKIPEDIA_LINK]]` – Wikipedia-Markup-Link: `[[Titel|Name]]` wenn Titel ≠ Name, `[[Titel]]` wenn gleich
+- `[[SEITE.STOLPERSTEINE_WIKIPEDIA]]` – Wikipedia-Seite der Stolpersteinliste
+- `[[SEITE.ZEILEN]]` – alle gerenderten Tabellenzeilen
+- `[[SEITE.ANZAHL_ZEILEN]]` – Anzahl der Stolpersteine
+
+**Person (Zeilenebene)**
+- `[[PERSON.NAME_VOLL]]` – Nachname, Vorname (geb. Geburtsname)
 - `[[PERSON.VORNAME]]`
 - `[[PERSON.NACHNAME]]`
 - `[[PERSON.GEBURTSNAME]]`
-- `[[PERSON.GEBURTSDATUM]]`
-- `[[PERSON.STERBEDATUM]]`
+- `[[PERSON.GEBURTSDATUM]]` – auf Deutsch formatiert (z. B. „15. März 1910"), respektiert Genauigkeit (tag/monat/jahr)
+- `[[PERSON.STERBEDATUM]]` – wie Geburtsdatum
+- `[[PERSON.BIOGRAFIE_KURZ]]`
+- `[[PERSON.WIKIPEDIA_NAME]]`, `[[PERSON.WIKIDATA_ID]]`
 
-**Stein**
-- `[[STEIN.VERLEGEDATUM]]`
-- `[[STEIN.INSCHRIFT]]`
-- `[[STEIN.STATUS]]`
-- `[[STEIN.ZUSTAND]]`
-- `[[STEIN.LAT]]`
-- `[[STEIN.LON]]`
+**Ort (Zeilenebene)**
+- `[[ORT.ADRESSE]]` – Straße + Hausnummer + Beschreibung (kombiniert)
+- `[[ORT.STRASSE]]`, `[[ORT.HAUSNUMMER]]`, `[[ORT.STRASSE_WIKIPEDIA]]`
+- `[[ORT.STADTTEIL]]`, `[[ORT.PLZ]]`
+- `[[ORT.BESCHREIBUNG]]`, `[[ORT.BEMERKUNG_HISTORISCH]]`
 
-**Ort**
-- `[[ORT.STADTTEIL]]`
-- `[[ORT.STRASSE]]`
-- `[[ORT.HAUSNUMMER]]`
-- `[[ORT.PLZ]]`
-- `[[ORT.BEMERKUNG_HISTORISCH]]`
+**Stein (Zeilenebene)**
+- `[[STEIN.INSCHRIFT_BR]]` – Inschrift Großschrift, Zeilenumbrüche als `<br />`
+- `[[STEIN.INSCHRIFT]]` – Inschrift Großschrift
+- `[[STEIN.VERLEGEDATUM]]` – Format DD.MM.YYYY
+- `[[STEIN.LAT]]`, `[[STEIN.LON]]`
+- `[[STEIN.WIKIMEDIA_COMMONS]]`, `[[STEIN.FOTO_AUTOR]]`, `[[STEIN.FOTO_LIZENZ]]`, `[[STEIN.FOTO_LIZENZ_URL]]`
+- `[[STEIN.WIKIDATA_ID]]`, `[[STEIN.OSM_ID]]`, `[[STEIN.STATUS]]`, `[[STEIN.ZUSTAND]]`
 
 ---
 
@@ -364,16 +406,23 @@ Ergebnisse werden in `validierungen` gespeichert.
 - HTML-Tags werden aus Freitextfeldern (`biografie_kurz`, `bemerkung_historisch`, `beschreibung`) entfernt
 - Wikidata-IDs für Straße und Stadtteil werden beim Import direkt in die normalisierten Tabellen geschrieben
 
-### Phase 5: Templates & Exporte
-- `ExportHandler` implementieren (`/api/export/{format}`)
-- Template-Versionierung
-- Platzhalter-Engine
-- Exporte: Wikipedia-Markup, OSM, JSON, CSV
+### ✅ Phase 5: Wikipedia-Export & Abgleich
+- `stadtteile.wikipedia_name` aufgeteilt in `wikipedia_stadtteil` (Stadtteil-Artikel) und `wikipedia_stolpersteine` (Stolpersteinliste für Export/Diff)
+- Template-System: Tabelle `templates` mit Versionierung (neue Version nur bei Inhaltsänderung, ältere Versionen werden deaktiviert)
+- Zwei Templates je Format: `name="seite"` (Seitenrahmen) + `name="zeile"` (eine Tabellenzeile)
+- Vollständiger Platzhalter-Satz für Person, Ort, Stein und Seitenkontext
+- `ExportService::wikipedia()` – generiert vollständigen Wikitext per `strtr()` mit Platzhaltern
+- `ExportService::wikipediaDiff()` – lädt Live-Wikitext per MediaWiki Action-API (`action=query&prop=revisions`)
+- `ExportHandler` / `TemplateHandler` – `/api/export/wikipedia`, `/api/export/wikipedia/diff`, `/api/templates`
+- Frontend Export-Seite: Kategorie-Tabs (Wikipedia / OSM / Wikidata), Wikipedia Sub-Tabs (Export / Templates)
+- Export-Tab: Stadtteil-Auswahl, zwei Textfelder nebeneinander (lokal ↔ live), zeilenweiser Diff mit Zeichen-Hervorhebung (jsdiff)
+- Template-Editor: Platzhalter-Sidebar zum Anklicken (mit Undo-Unterstützung via execCommand), Versionsnummer-Anzeige
+- Alle Export- und Template-Endpunkte nur für Admins zugänglich
 
-### Phase 6: Externe Validierung & Wikipedia-Diff
-- Wikidata/OSM-Checks
+### Phase 6: Externe Validierung (Wikidata/OSM)
+*(Vorgesehen, noch nicht implementiert)*
+- Wikidata/OSM-Checks (Syntax, Existenz, Semantik)
 - Speicherung der Ergebnisse in `validierungen`
-- Wikipedia-Diff (seitenweises Einlesen, feldweiser Vergleich)
 
 ### ✅ Phase 7: Frontend
 - **Alpine.js** (kein Build-Schritt, CDN), **Pico CSS** für Basis-Styling
@@ -411,8 +460,9 @@ Implementiert:
   - Datei-Upload → Spaltenvorschau → Feld-Mapping → Dry-Run → Ausführen
   - Fortschrittsanzeige, Zeilen-Status-Tabelle
 - ✅ Klickbare Tabellenzeilen in allen Listen (Klick = Bearbeiten, dezenter Hover-Effekt)
+- ✅ Export-Seite: Wikipedia-Export, Template-Verwaltung, Diff-Ansicht (nur Admin)
 
-Ausstehend: Dokumente, Suche, Export, Benutzerverwaltung
+Ausstehend: Dokumente, Suche, Benutzerverwaltung
 
 ### Phase 8: Feinschliff & Erweiterungen
 - Optimierungen

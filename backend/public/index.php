@@ -84,7 +84,13 @@ $router->add('DELETE', '/dokumente/{id}', 'Stolpersteine\Api\DokumenteHandler', 
 $router->add('GET', '/suche', 'Stolpersteine\Api\SucheHandler', 'search');
 
 // Export
-$router->add('GET', '/export/{format}', 'Stolpersteine\Api\ExportHandler', 'export');
+$router->add('GET', '/export/wikipedia/diff', 'Stolpersteine\Api\ExportHandler', 'diff');
+$router->add('GET', '/export/{format}',       'Stolpersteine\Api\ExportHandler', 'export');
+
+// Templates
+$router->add('GET', '/templates',      'Stolpersteine\Api\TemplateHandler', 'index');
+$router->add('GET', '/templates/{id}', 'Stolpersteine\Api\TemplateHandler', 'show');
+$router->add('PUT', '/templates/{id}', 'Stolpersteine\Api\TemplateHandler', 'update');
 
 // Import
 $router->add('POST', '/import/analyze', 'Stolpersteine\Api\ImportHandler', 'analyze');

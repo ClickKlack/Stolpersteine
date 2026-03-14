@@ -149,6 +149,12 @@ class AdressenHandler extends BaseHandler
             (int) $body['stadt_id'],
             $body['wikidata_id'] ?? null
         );
+        $this->repo->updateStadtteil(
+            $id, trim($body['name']), (int) $body['stadt_id'],
+            $body['wikidata_id'] ?? null,
+            !empty($body['wikipedia_stadtteil'])     ? trim($body['wikipedia_stadtteil'])     : null,
+            !empty($body['wikipedia_stolpersteine']) ? trim($body['wikipedia_stolpersteine']) : null
+        );
         Response::success($this->repo->findStadtteilById($id));
     }
 
@@ -191,7 +197,9 @@ class AdressenHandler extends BaseHandler
             (int) $params['id'],
             trim($body['name']),
             (int) $body['stadt_id'],
-            $body['wikidata_id'] ?? null
+            $body['wikidata_id'] ?? null,
+            !empty($body['wikipedia_stadtteil'])     ? trim($body['wikipedia_stadtteil'])     : null,
+            !empty($body['wikipedia_stolpersteine']) ? trim($body['wikipedia_stolpersteine']) : null
         );
         Response::success($this->repo->findStadtteilById((int) $params['id']));
     }

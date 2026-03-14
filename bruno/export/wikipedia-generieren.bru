@@ -1,0 +1,23 @@
+meta {
+  name: Export – Wikipedia Wikitext
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/export/wikipedia
+  body: none
+  auth: none
+}
+
+query {
+  stadtteil_id: 1
+}
+
+tests {
+  test("Status 200", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.data).to.have.property("wikitext");
+    expect(res.body.data).to.have.property("anzahl");
+  });
+}

@@ -26,6 +26,8 @@
 <script src="js/pages/verlegeorte.js"></script>
 <script src="js/pages/import.js"></script>
 <script src="js/pages/adressen.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/diff@5/dist/diff.min.js"></script>
+<script src="js/pages/export.js"></script>
 <script src="js/app.js"></script>
 
 <!-- =====================================================================
@@ -141,6 +143,12 @@
                             <a href="#import"
                                :class="{ active: router.is('import') }">
                                 Import
+                            </a>
+                        </li>
+                        <li x-show="auth.isAdmin">
+                            <a href="#export"
+                               :class="{ active: router.is('export') }">
+                                Export
                             </a>
                         </li>
                         <li x-show="auth.isAdmin">
@@ -1861,6 +1869,314 @@
                     </div>
                 </template>
 
+                <!-- Export -->
+                <template x-if="router.is('export') && auth.isAdmin">
+                    <div x-data="exportPage" x-init="init()">
+
+                        <!-- Kopfzeile mit Kategorie-Tabs -->
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:1rem; flex-wrap:wrap;">
+                            <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+                                <h2 style="margin:0;">Export</h2>
+                                <div style="display:flex; gap:0.25rem; flex-wrap:wrap;">
+                                    <template x-for="kat in ['wikipedia', 'openstreetmap', 'wikidata']" :key="kat">
+                                        <button type="button"
+                                                :class="kategorie === kat ? '' : 'outline'"
+                                                style="margin:0; padding:0.25rem 0.75rem; font-size:0.875rem;"
+                                                @click="kategorieWaehlen(kat)"
+                                                x-text="kat === 'wikipedia' ? 'Wikipedia' : kat === 'openstreetmap' ? 'OpenStreetMap' : 'Wikidata'">
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Wikipedia -->
+                        <div x-show="kategorie === 'wikipedia'">
+
+                            <!-- Sub-Tabs Export / Templates -->
+                            <div style="display:flex; gap:0.25rem; flex-wrap:wrap; margin-bottom:1.25rem; border-bottom:1px solid var(--pico-muted-border-color); padding-bottom:0.5rem;">
+                                <button type="button"
+                                        :class="wpTab === 'export' ? '' : 'outline'"
+                                        style="margin:0; padding:0.2rem 0.65rem; font-size:0.85rem;"
+                                        @click="wpTab = 'export'">Export</button>
+                                <button type="button"
+                                        :class="wpTab === 'templates' ? '' : 'outline'"
+                                        style="margin:0; padding:0.2rem 0.65rem; font-size:0.85rem;"
+                                        @click="wpTabWaehlen('templates')">Templates</button>
+                            </div>
+
+                            <!-- Sub: Export -->
+                            <div x-show="wpTab === 'export'">
+
+                                <p style="color:var(--pico-muted-color); margin-bottom:1.25rem;">
+                                    Wähle einen Stadtteil, um den vollständigen Wikitext für die zugehörige Wikipedia-Seite zu erzeugen.
+                                    Nur Stadtteile mit hinterlegtem Wikipedia-Artikelnamen werden angezeigt.
+                                </p>
+
+                                <!-- Ladeindikator -->
+                                <div x-show="loading" class="loading-spinner">
+                                    <span aria-busy="true"></span> Lade …
+                                </div>
+
+                                <!-- Fehler -->
+                                <p x-show="error" style="color:var(--pico-del-color);" x-text="error"></p>
+
+                                <template x-if="!loading && stadtteile.length === 0 && !error">
+                                    <p style="color:var(--pico-muted-color);">
+                                        Keine Stadtteile mit Wikipedia-Stolpersteinliste gefunden.
+                                        Bitte hinterlege die Wikipedia-Stolpersteinliste bei den gewünschten Stadtteilen unter <a href="#adressen">Adressen → Stadtteile</a>.
+                                    </p>
+                                </template>
+
+                                <!-- Stadtteil-Auswahl -->
+                                <template x-if="!loading && stadtteile.length > 0">
+                                    <div>
+                                        <div style="display:flex; gap:0.75rem; flex-wrap:wrap; margin-bottom:1.25rem; align-items:flex-end;">
+                                            <label style="margin:0; flex:1; min-width:220px;">
+                                                Stadtteil
+                                                <select @change="stadttteilWaehlen(stadtteile.find(s => s.id == $event.target.value))"
+                                                        style="margin:0;">
+                                                    <option value="">— bitte wählen —</option>
+                                                    <template x-for="st in stadtteile" :key="st.id">
+                                                        <option :value="st.id" x-text="st.name"></option>
+                                                    </template>
+                                                </select>
+                                            </label>
+                                            <button @click="exportieren()"
+                                                    :disabled="!gewaehlterStadtteil || exportLaden"
+                                                    :aria-busy="exportLaden"
+                                                    style="margin:0;">
+                                                Wikitext erzeugen
+                                            </button>
+                                            <button class="outline" @click="vergleichen()"
+                                                    :disabled="!gewaehlterStadtteil || diffLaden"
+                                                    :aria-busy="diffLaden"
+                                                    style="margin:0;">
+                                                Mit Wikipedia vergleichen
+                                            </button>
+                                        </div>
+
+                                        <!-- Infos zur gewählten Seite -->
+                                        <template x-if="gewaehlterStadtteil">
+                                            <p style="color:var(--pico-muted-color); font-size:0.875rem; margin-bottom:0.75rem;">
+                                                Stolpersteinliste:
+                                                <strong x-text="gewaehlterStadtteil.wikipedia_stolpersteine"></strong>
+                                            </p>
+                                        </template>
+
+                                        <!-- Fehlermeldungen -->
+                                        <p x-show="exportFehler" style="color:var(--pico-del-color);" x-text="exportFehler"></p>
+                                        <p x-show="diffFehler"   style="color:var(--pico-del-color);" x-text="diffFehler"></p>
+
+                                        <!-- Zwei Textfelder nebeneinander -->
+                                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+
+                                            <!-- Links: lokal generiert -->
+                                            <div>
+                                                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.4rem; gap:0.5rem; min-height:2rem;">
+                                                    <span style="font-size:0.8rem; font-weight:600; color:var(--pico-muted-color);">
+                                                        Lokal generiert
+                                                        <template x-if="wikitext !== null">
+                                                            &nbsp;· <span x-text="anzahl"></span> Stolpersteine
+                                                        </template>
+                                                    </span>
+                                                    <button x-show="wikitext !== null"
+                                                            type="button" class="outline" @click="kopieren()"
+                                                            style="margin:0; padding:0.2rem 0.6rem; font-size:0.8rem;">
+                                                        <span x-show="!kopiert">Kopieren</span>
+                                                        <span x-show="kopiert">✓ Kopiert</span>
+                                                    </button>
+                                                </div>
+                                                <textarea id="wikitext-output"
+                                                          :value="wikitext ?? ''"
+                                                          readonly
+                                                          rows="35"
+                                                          :placeholder="exportLaden ? 'Wird erzeugt…' : 'Noch kein Wikitext erzeugt.'"
+                                                          style="font-family:monospace; font-size:0.78rem; width:100%; resize:vertical; margin:0;">
+                                                </textarea>
+                                            </div>
+
+                                            <!-- Rechts: Wikipedia live -->
+                                            <div>
+                                                <div style="display:flex; align-items:center; margin-bottom:0.4rem; min-height:2rem;">
+                                                    <span style="font-size:0.8rem; font-weight:600; color:var(--pico-muted-color);">
+                                                        Wikipedia (live)
+                                                        <template x-if="wikiseiteName && wikitextLive !== null">
+                                                            &nbsp;·
+                                                            <a :href="'https://de.wikipedia.org/wiki/' + encodeURIComponent(wikiseiteName)"
+                                                               target="_blank" rel="noopener"
+                                                               style="font-size:0.8rem;"
+                                                               x-text="wikiseiteName"></a>
+                                                        </template>
+                                                    </span>
+                                                </div>
+                                                <textarea :value="wikitextLive ?? ''"
+                                                          readonly
+                                                          rows="35"
+                                                          :placeholder="diffLaden ? 'Wird geladen…' : 'Noch nicht mit Wikipedia verglichen.'"
+                                                          style="font-family:monospace; font-size:0.78rem; width:100%; resize:vertical; margin:0;">
+                                                </textarea>
+                                            </div>
+
+                                        </div>
+
+                                        <!-- Diff-Ergebnis -->
+                                        <template x-if="diffPaare !== null">
+                                            <div style="margin-top:1.5rem;">
+                                                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem; flex-wrap:wrap; gap:0.75rem;">
+                                                    <span style="font-size:0.875rem;">
+                                                        <strong>Zeilenvergleich</strong>
+                                                        &nbsp;·&nbsp;
+                                                        <span style="color:var(--pico-ins-color);" x-text="'+' + diffPaare.filter(p => p.live === null).length + ' lokal neu'"></span>
+                                                        &nbsp;
+                                                        <span style="color:var(--pico-del-color);" x-text="'−' + diffPaare.filter(p => p.lokal === null).length + ' lokal entfernt'"></span>
+                                                    </span>
+                                                    <div style="display:flex; gap:0.5rem;">
+                                                        <button type="button"
+                                                                :class="diffNurAenderungen ? '' : 'outline'"
+                                                                style="margin:0; padding:0.2rem 0.65rem; font-size:0.8rem;"
+                                                                @click="diffNurAenderungen = true">
+                                                            Nur Änderungen
+                                                        </button>
+                                                        <button type="button"
+                                                                :class="!diffNurAenderungen ? '' : 'outline'"
+                                                                style="margin:0; padding:0.2rem 0.65rem; font-size:0.8rem;"
+                                                                @click="diffNurAenderungen = false">
+                                                            Alle Zeilen
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <div style="border:1px solid var(--pico-muted-border-color); border-radius:4px; overflow:hidden; max-height:600px; overflow-y:auto;">
+                                                    <!-- Kein Unterschied -->
+                                                    <template x-if="diffPaare.filter(p => p.typ !== 'gleich').length === 0">
+                                                        <p style="margin:0.75rem 1rem; color:var(--pico-muted-color);">Kein Unterschied – Texte sind identisch.</p>
+                                                    </template>
+                                                    <table style="width:100%; border-collapse:collapse; font-family:monospace; font-size:0.78rem; table-layout:fixed;">
+                                                        <thead>
+                                                            <tr style="position:sticky; top:0; z-index:1; background:var(--pico-card-background-color);">
+                                                                <th style="padding:0.3rem 0.75rem; text-align:left; border-bottom:2px solid var(--pico-muted-border-color); border-right:1px solid var(--pico-muted-border-color); width:50%;">Lokal generiert</th>
+                                                                <th style="padding:0.3rem 0.75rem; text-align:left; border-bottom:2px solid var(--pico-muted-border-color); width:50%;">Wikipedia (live)</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <template x-for="(paar, idx) in (diffNurAenderungen ? diffPaare.filter(p => p.typ !== 'gleich') : diffPaare)" :key="idx">
+                                                                <tr>
+                                                                    <td :style="paar.lokal === null
+                                                                                    ? 'background:rgba(200,0,0,0.07);'
+                                                                                    : paar.typ !== 'gleich'
+                                                                                        ? 'background:rgba(0,160,0,0.10);'
+                                                                                        : 'color:var(--pico-muted-color);'"
+                                                                        style="padding:1px 8px; white-space:pre-wrap; word-break:break-all; border-bottom:1px solid var(--pico-muted-border-color); border-right:1px solid var(--pico-muted-border-color); vertical-align:top;"
+                                                                        x-html="paar.lokalHtml ?? ''"></td>
+                                                                    <td :style="paar.live === null
+                                                                                    ? 'background:rgba(0,160,0,0.07);'
+                                                                                    : paar.typ !== 'gleich'
+                                                                                        ? 'background:rgba(200,0,0,0.08);'
+                                                                                        : 'color:var(--pico-muted-color);'"
+                                                                        style="padding:1px 8px; white-space:pre-wrap; word-break:break-all; border-bottom:1px solid var(--pico-muted-border-color); vertical-align:top;"
+                                                                        x-html="paar.liveHtml ?? ''"></td>
+                                                                </tr>
+                                                            </template>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </template>
+
+                                    </div>
+                                </template>
+
+                            </div>
+
+                            <!-- Sub: Templates -->
+                            <div x-show="wpTab === 'templates'">
+
+                                <div x-show="tplLaden" class="loading-spinner">
+                                    <span aria-busy="true"></span> Lade …
+                                </div>
+                                <p x-show="tplFehler" style="color:var(--pico-del-color);" x-text="tplFehler"></p>
+
+                                <template x-for="tpl in wpTemplates" :key="tpl.id">
+                                    <div style="margin-bottom:2rem;">
+
+                                        <!-- Kopfzeile -->
+                                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem; gap:0.5rem; flex-wrap:wrap;">
+                                            <strong x-text="tpl.name === 'seite' ? 'Seiten-Template' : tpl.name === 'zeile' ? 'Zeilen-Template' : tpl.name"
+                                                    style="font-size:0.95rem;"></strong>
+                                            <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+                                                <span style="color:var(--pico-muted-color); font-size:0.8rem;">
+                                                    v<span x-text="tpl.version"></span> · geändert <span x-text="tpl.geaendert_am?.substring(0,10)"></span>
+                                                </span>
+                                                <button type="button"
+                                                        :aria-busy="tpl._saving"
+                                                        :disabled="tpl._saving"
+                                                        style="margin:0; padding:0.2rem 0.65rem; font-size:0.85rem;"
+                                                        @click="templateSpeichern(tpl)">
+                                                    Speichern
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <p x-show="tpl._fehler" style="color:var(--pico-del-color); font-size:0.85rem; margin:0.25rem 0;" x-text="tpl._fehler"></p>
+                                        <p x-show="tpl._ok" style="color:var(--pico-ins-color); font-size:0.85rem; margin:0.25rem 0;" x-text="tpl._ok"></p>
+
+                                        <!-- Editor + Platzhalter -->
+                                        <div style="display:flex; gap:1rem; align-items:flex-start;">
+
+                                            <!-- Textarea -->
+                                            <textarea :id="'tpl-textarea-' + tpl.id"
+                                                      x-model="tpl.inhalt"
+                                                      rows="20"
+                                                      style="flex:1; min-width:0; font-family:monospace; font-size:0.8rem; resize:vertical;">
+                                            </textarea>
+
+                                            <!-- Platzhalter-Sidebar -->
+                                            <div style="width:230px; flex-shrink:0; font-size:0.78rem;">
+                                                <template x-for="gruppe in (tplPlatzhalter[tpl.name] || [])" :key="gruppe.gruppe">
+                                                    <div style="margin-bottom:0.75rem;">
+                                                        <div style="font-weight:600; color:var(--pico-muted-color); margin-bottom:0.3rem; text-transform:uppercase; font-size:0.7rem; letter-spacing:0.05em;"
+                                                             x-text="gruppe.gruppe"></div>
+                                                        <template x-for="item in gruppe.items" :key="item.key">
+                                                            <div style="margin-bottom:0.2rem;">
+                                                                <button type="button"
+                                                                        class="outline"
+                                                                        style="margin:0; padding:0.1rem 0.4rem; font-size:0.7rem; font-family:monospace; width:100%; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"
+                                                                        :title="item.key + ' – ' + item.info"
+                                                                        @mousedown.prevent
+                                                                        @click="platzhalterEinfuegen(tpl, item.key)"
+                                                                        x-text="item.key">
+                                                                </button>
+                                                            </div>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                            </div>
+
+                                        </div>
+                                    </div>
+                                </template>
+
+                                <template x-if="!tplLaden && wpTemplates.length === 0 && !tplFehler">
+                                    <p style="color:var(--pico-muted-color);">Keine Wikipedia-Templates gefunden.</p>
+                                </template>
+
+                            </div>
+
+                        </div>
+
+                        <!-- OpenStreetMap -->
+                        <div x-show="kategorie === 'openstreetmap'">
+                            <p style="color:var(--pico-muted-color);">OpenStreetMap-Export – noch nicht implementiert.</p>
+                        </div>
+
+                        <!-- Wikidata -->
+                        <div x-show="kategorie === 'wikidata'">
+                            <p style="color:var(--pico-muted-color);">Wikidata-Export – noch nicht implementiert.</p>
+                        </div>
+
+                    </div>
+                </template>
+
                 <!-- Adressen-Verwaltung -->
                 <template x-if="router.is('adressen') && auth.isAdmin">
                     <div x-data="adressenPage">
@@ -1904,31 +2220,99 @@
                         <!-- -------------------------------------------------- -->
                         <template x-if="!loading && sub === 'lokationen'">
                             <div>
-                                <div style="display:flex; gap:1rem; margin-bottom:1rem; flex-wrap:wrap;">
-                                    <select style="max-width:220px;"
-                                            x-model="filterStadtteilId"
-                                            @change="_loadLokationen()">
-                                        <option value="">Alle Stadtteile</option>
-                                        <template x-for="st in stadtteile" :key="st.id">
-                                            <option :value="st.id" x-text="st.name + ' (' + st.stadt_name + ')'"></option>
-                                        </template>
-                                    </select>
-                                    <select style="max-width:220px;"
-                                            x-model="filterStrasseId"
-                                            @change="_loadLokationen()">
-                                        <option value="">Alle Straßen</option>
-                                        <template x-for="s in strassen" :key="s.id">
-                                            <option :value="s.id" x-text="s.name"></option>
-                                        </template>
-                                    </select>
-                                    <select style="max-width:160px;"
-                                            x-model="filterPlzId"
-                                            @change="_loadLokationen()">
-                                        <option value="">Alle PLZ</option>
-                                        <template x-for="p in plzListe" :key="p.id">
-                                            <option :value="p.id" x-text="p.plz"></option>
-                                        </template>
-                                    </select>
+                                <div style="display:flex; gap:0.75rem; margin-bottom:1rem; flex-wrap:wrap; align-items:flex-end;">
+
+                                    <!-- Stadt -->
+                                    <div style="flex:0 0 auto;">
+                                        <small style="display:block; margin-bottom:0.3rem; font-size:0.8rem; color:var(--pico-muted-color);">Stadt</small>
+                                        <select style="margin:0; min-width:160px;"
+                                                x-model="filterStadtId"
+                                                @change="onFilterStadtChange()">
+                                            <option value="">Alle Städte</option>
+                                            <template x-for="sta in staedte" :key="sta.id">
+                                                <option :value="sta.id" x-text="sta.name"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+
+                                    <!-- Stadtteil -->
+                                    <div style="flex:1; min-width:180px; max-width:260px;">
+                                        <small style="display:block; margin-bottom:0.3rem; font-size:0.8rem; color:var(--pico-muted-color);">Stadtteil</small>
+                                        <div class="lookup-wrapper" @click.away="filterLokOpen.stadtteil = false">
+                                            <div style="display:flex; gap:0.25rem;">
+                                                <input type="text" style="margin:0; flex:1;"
+                                                       x-model="filterStadtteilQ"
+                                                       @input="filterLokOpen.stadtteil = true"
+                                                       @focus="filterLokOpen.stadtteil = true"
+                                                       placeholder="Stadtteil suchen …">
+                                                <button type="button" class="btn-icon" x-show="filterStadtteilId"
+                                                        @click="clearFilterStadtteil()" title="Filter löschen"
+                                                        style="flex-shrink:0; font-size:1.1rem;">×</button>
+                                            </div>
+                                            <div class="lookup-dropdown" x-show="filterLokOpen.stadtteil" style="z-index:200;">
+                                                <template x-for="st in filterStadtteileOpts" :key="st.id">
+                                                    <div class="lookup-item" @mousedown.prevent="selectFilterStadtteil(st)">
+                                                        <span x-text="st.name"></span>
+                                                        <small x-text="st.stadt_name"></small>
+                                                    </div>
+                                                </template>
+                                                <div class="lookup-item lookup-loading" x-show="filterStadtteileOpts.length === 0">Keine Treffer</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Straße -->
+                                    <div style="flex:1; min-width:180px; max-width:260px;">
+                                        <small style="display:block; margin-bottom:0.3rem; font-size:0.8rem; color:var(--pico-muted-color);">Straße</small>
+                                        <div class="lookup-wrapper" @click.away="filterLokOpen.strasse = false">
+                                            <div style="display:flex; gap:0.25rem;">
+                                                <input type="text" style="margin:0; flex:1;"
+                                                       x-model="filterStrasseQ"
+                                                       @input="filterLokOpen.strasse = true"
+                                                       @focus="filterLokOpen.strasse = true"
+                                                       placeholder="Straße suchen …">
+                                                <button type="button" class="btn-icon" x-show="filterStrasseId"
+                                                        @click="clearFilterStrasse()" title="Filter löschen"
+                                                        style="flex-shrink:0; font-size:1.1rem;">×</button>
+                                            </div>
+                                            <div class="lookup-dropdown" x-show="filterLokOpen.strasse" style="z-index:200;">
+                                                <template x-for="s in filterStrassenOpts" :key="s.id">
+                                                    <div class="lookup-item" @mousedown.prevent="selectFilterStrasse(s)">
+                                                        <span x-text="s.name"></span>
+                                                        <small x-text="s.stadt_name"></small>
+                                                    </div>
+                                                </template>
+                                                <div class="lookup-item lookup-loading" x-show="filterStrassenOpts.length === 0">Keine Treffer</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- PLZ -->
+                                    <div style="flex:0 0 auto; min-width:140px; max-width:180px;">
+                                        <small style="display:block; margin-bottom:0.3rem; font-size:0.8rem; color:var(--pico-muted-color);">PLZ</small>
+                                        <div class="lookup-wrapper" @click.away="filterLokOpen.plz = false">
+                                            <div style="display:flex; gap:0.25rem;">
+                                                <input type="text" style="margin:0; flex:1;"
+                                                       x-model="filterPlzQ"
+                                                       @input="filterLokOpen.plz = true"
+                                                       @focus="filterLokOpen.plz = true"
+                                                       placeholder="PLZ suchen …">
+                                                <button type="button" class="btn-icon" x-show="filterPlzId"
+                                                        @click="clearFilterPlz()" title="Filter löschen"
+                                                        style="flex-shrink:0; font-size:1.1rem;">×</button>
+                                            </div>
+                                            <div class="lookup-dropdown" x-show="filterLokOpen.plz" style="z-index:200;">
+                                                <template x-for="p in filterPlzOpts" :key="p.id">
+                                                    <div class="lookup-item" @mousedown.prevent="selectFilterPlz(p)">
+                                                        <span x-text="p.plz"></span>
+                                                        <small x-text="p.stadt_name"></small>
+                                                    </div>
+                                                </template>
+                                                <div class="lookup-item lookup-loading" x-show="filterPlzOpts.length === 0">Keine Treffer</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                 </div>
                                 <div class="table-responsive">
                                     <table>
@@ -2210,8 +2594,12 @@
                                                 </template>
                                             </select>
                                         </label>
-                                        <label>Wikipedia-Artikelname
-                                            <input type="text" x-model="editObj.wikipedia_name"
+                                        <label>Wikipedia-Stadtteil-Seite
+                                            <input type="text" x-model="editObj.wikipedia_stadtteil"
+                                                   placeholder="z. B. Altstadt (Magdeburg)">
+                                        </label>
+                                        <label>Wikipedia-Stolpersteinliste
+                                            <input type="text" x-model="editObj.wikipedia_stolpersteine"
                                                    placeholder="z. B. Stolpersteine in Magdeburg-Altstadt">
                                         </label>
                                         <label>Wikidata-ID
@@ -2274,31 +2662,76 @@
 
                                     <!-- Lokationen -->
                                     <div x-show="sub === 'lokationen'">
-                                        <label>Straße *
-                                            <select x-model="editObj.strasse_id">
-                                                <option value="">– bitte wählen –</option>
-                                                <template x-for="s in strassen" :key="s.id">
-                                                    <option :value="s.id" x-text="s.name + ' (' + s.stadt_name + ')'"></option>
+
+                                        <!-- Straße -->
+                                        <label style="display:block; margin-bottom:0.1rem;">Straße *</label>
+                                        <div class="lookup-wrapper" style="margin-bottom:1rem;" @click.away="editLokOpen.strasse = false">
+                                            <input type="text"
+                                                   x-model="editStrasseQ"
+                                                   @input="editLokOpen.strasse = true"
+                                                   @focus="editLokOpen.strasse = true"
+                                                   placeholder="Straße tippen …"
+                                                   style="margin:0;">
+                                            <div class="lookup-dropdown" x-show="editLokOpen.strasse">
+                                                <template x-for="s in editStrassenOpts" :key="s.id">
+                                                    <div class="lookup-item" @mousedown.prevent="selectEditStrasse(s)">
+                                                        <span x-text="s.name"></span>
+                                                        <small x-text="s.stadt_name"></small>
+                                                    </div>
                                                 </template>
-                                            </select>
-                                        </label>
-                                        <label>Stadtteil (optional)
-                                            <select x-model="editObj.stadtteil_id">
-                                                <option value="">— kein Stadtteil —</option>
-                                                <template x-for="st in stadtteile" :key="st.id">
-                                                    <option :value="st.id" x-text="st.name + ' (' + st.stadt_name + ')'"></option>
-                                                </template>
-                                            </select>
-                                        </label>
-                                        <label>PLZ (optional)
-                                            <select x-model="editObj.plz_id">
-                                                <option value="">— keine PLZ —</option>
-                                                <template x-for="p in plzListe" :key="p.id">
-                                                    <option :value="p.id" x-text="p.plz + ' (' + p.stadt_name + ')'"></option>
-                                                </template>
-                                            </select>
-                                            </label>
+                                                <div class="lookup-item lookup-loading" x-show="editStrassenOpts.length === 0">Keine Treffer</div>
+                                            </div>
                                         </div>
+
+                                        <!-- Stadtteil -->
+                                        <label style="display:block; margin-bottom:0.1rem;">Stadtteil (optional)</label>
+                                        <div class="lookup-wrapper" style="margin-bottom:1rem;" @click.away="editLokOpen.stadtteil = false">
+                                            <div style="display:flex; gap:0.25rem;">
+                                                <input type="text" style="margin:0; flex:1;"
+                                                       x-model="editStadtteilQ"
+                                                       @input="editLokOpen.stadtteil = true"
+                                                       @focus="editLokOpen.stadtteil = true"
+                                                       placeholder="Stadtteil tippen …">
+                                                <button type="button" class="btn-icon" x-show="editObj.stadtteil_id"
+                                                        @click="clearEditStadtteil()" title="Auswahl löschen"
+                                                        style="flex-shrink:0; font-size:1.1rem;">×</button>
+                                            </div>
+                                            <div class="lookup-dropdown" x-show="editLokOpen.stadtteil">
+                                                <template x-for="st in editStadtteileOpts" :key="st.id">
+                                                    <div class="lookup-item" @mousedown.prevent="selectEditStadtteil(st)">
+                                                        <span x-text="st.name"></span>
+                                                        <small x-text="st.stadt_name"></small>
+                                                    </div>
+                                                </template>
+                                                <div class="lookup-item lookup-loading" x-show="editStadtteileOpts.length === 0">Keine Treffer</div>
+                                            </div>
+                                        </div>
+
+                                        <!-- PLZ -->
+                                        <label style="display:block; margin-bottom:0.1rem;">PLZ (optional)</label>
+                                        <div class="lookup-wrapper" style="margin-bottom:0.5rem;" @click.away="editLokOpen.plz = false">
+                                            <div style="display:flex; gap:0.25rem;">
+                                                <input type="text" style="margin:0; flex:1;"
+                                                       x-model="editPlzQ"
+                                                       @input="editLokOpen.plz = true"
+                                                       @focus="editLokOpen.plz = true"
+                                                       placeholder="PLZ tippen …">
+                                                <button type="button" class="btn-icon" x-show="editObj.plz_id"
+                                                        @click="clearEditPlz()" title="Auswahl löschen"
+                                                        style="flex-shrink:0; font-size:1.1rem;">×</button>
+                                            </div>
+                                            <div class="lookup-dropdown" x-show="editLokOpen.plz">
+                                                <template x-for="p in editPlzOpts" :key="p.id">
+                                                    <div class="lookup-item" @mousedown.prevent="selectEditPlz(p)">
+                                                        <span x-text="p.plz"></span>
+                                                        <small x-text="p.stadt_name"></small>
+                                                    </div>
+                                                </template>
+                                                <div class="lookup-item lookup-loading" x-show="editPlzOpts.length === 0">Keine Treffer</div>
+                                            </div>
+                                        </div>
+
+                                    </div>
 
                                     <footer style="display:flex; justify-content:flex-end; gap:0.5rem;">
                                         <button class="outline" @click="modal = null">Abbrechen</button>

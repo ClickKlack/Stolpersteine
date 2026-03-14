@@ -395,7 +395,13 @@ CRUD für Stadtteile. Anlegen/Ändern/Löschen erfordert **Admin**.
 
 **Body (JSON):**
 ```json
-{ "name": "Altstadt", "stadt_id": 1, "wikidata_id": "Q445520" }
+{
+  "name": "Altstadt",
+  "stadt_id": 1,
+  "wikidata_id": "Q445520",
+  "wikipedia_stadtteil": "Altstadt (Magdeburg)",
+  "wikipedia_stolpersteine": "Liste der Stolpersteine in Magdeburg-Altstadt"
+}
 ```
 
 **Pflichtfelder:** `name`, `stadt_id`
@@ -979,6 +985,169 @@ Bei einem Datenbankfehler wird die gesamte Transaktion zurückgerollt. Fehlerzei
 
 ---
 
+## Export
+
+Alle Export-Endpunkte erfordern **Admin**-Rolle.
+
+### `GET /api/export/wikipedia?stadtteil_id={id}`
+Erzeugt den vollständigen Wikitext für die Wikipedia-Stolpersteinliste eines Stadtteils.
+
+**Query-Parameter:**
+
+| Parameter | Pflicht | Beschreibung |
+|---|---|---|
+| `stadtteil_id` | ✅ | ID des Stadtteils |
+| `raw` | – | `1` → Antwort als `text/plain` (Wikitext direkt, kein JSON-Wrapper) |
+
+**Antwort `200`:**
+```json
+{
+  "success": true,
+  "data": {
+    "wikitext": "Die '''Liste der Stolpersteine...",
+    "stadtteil": "Neue Neustadt",
+    "wikipedia_name": "Liste der Stolpersteine in Magdeburg-Neue Neustadt",
+    "anzahl": 16
+  }
+}
+```
+
+**Fehler:**
+- `404` – Stadtteil nicht gefunden
+- `409` – Kein aktives Template vorhanden
+
+---
+
+### `GET /api/export/wikipedia/diff?stadtteil_id={id}`
+Gibt lokal generierten Wikitext und den aktuellen Live-Wikitext von Wikipedia zurück (für Diff-Anzeige im Frontend).
+
+**Query-Parameter:**
+
+| Parameter | Pflicht | Beschreibung |
+|---|---|---|
+| `stadtteil_id` | ✅ | ID des Stadtteils |
+
+**Antwort `200`:**
+```json
+{
+  "success": true,
+  "data": {
+    "lokal": "Die '''Liste der Stolpersteine...",
+    "live": "Die '''Liste der Stolpersteine...",
+    "seitenname": "Liste der Stolpersteine in Magdeburg-Neue Neustadt",
+    "anzahl": 16
+  }
+}
+```
+
+`live` ist `null` wenn die Wikipedia-Seite nicht abgerufen werden konnte (Seite nicht vorhanden, Netzwerkfehler).
+
+**Fehler:**
+- `404` – Stadtteil nicht gefunden
+- `409` – Kein aktives Template vorhanden
+
+---
+
+## Templates
+
+Alle Template-Endpunkte erfordern **Admin**-Rolle.
+
+Templates steuern das Ausgabeformat des Exports. Pro Zielsystem gibt es zwei Templates:
+- `name = "seite"` – Rahmen der gesamten Seite (Einleitung, Tabellenstart/-ende, Fußnoten)
+- `name = "zeile"` – Markup für genau einen Datensatz (eine Tabellenzeile)
+
+Jede Änderung erzeugt eine neue Versionszeile; ältere Versionen werden deaktiviert (`aktiv = 0`). Wenn der Inhalt unverändert ist, wird keine neue Version erstellt.
+
+### `GET /api/templates?zielsystem={system}`
+Gibt alle aktiven Templates für ein Zielsystem zurück.
+
+**Query-Parameter:**
+
+| Parameter | Beschreibung |
+|---|---|
+| `zielsystem` | z. B. `wikipedia` |
+
+**Antwort `200`:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 3,
+      "name": "seite",
+      "version": 2,
+      "zielsystem": "wikipedia",
+      "inhalt": "Die '''Liste...",
+      "erstellt_am": "2025-03-01T10:00:00Z",
+      "geaendert_am": "2025-03-10T14:30:00Z"
+    },
+    {
+      "id": 5,
+      "name": "zeile",
+      "version": 1,
+      "zielsystem": "wikipedia",
+      "inhalt": "{{Stolpersteinliste Tabellenzeile |...",
+      "erstellt_am": "2025-03-01T10:00:00Z",
+      "geaendert_am": "2025-03-01T10:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### `GET /api/templates/{id}`
+Gibt ein einzelnes Template zurück.
+
+**Antwort `200`:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 3,
+    "name": "seite",
+    "version": 2,
+    "zielsystem": "wikipedia",
+    "inhalt": "Die '''Liste...",
+    "aktiv": 1,
+    "erstellt_am": "2025-03-01T10:00:00Z",
+    "geaendert_am": "2025-03-10T14:30:00Z"
+  }
+}
+```
+
+**Fehler:** `404` – Template nicht gefunden
+
+---
+
+### `PUT /api/templates/{id}`
+Aktualisiert den Inhalt eines Templates. Erstellt eine neue Version, wenn der Inhalt geändert wurde; andernfalls bleibt die Versionsnummer unverändert.
+
+**Body (JSON):**
+```json
+{ "inhalt": "Die '''Liste der Stolpersteine..." }
+```
+
+**Antwort `200`:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 4,
+    "version": 3,
+    "geaendert_am": "2025-03-14T09:00:00Z"
+  }
+}
+```
+
+Wenn der Inhalt unverändert war, wird die bestehende `id` zurückgegeben und `version` bleibt gleich.
+
+**Fehler:**
+- `404` – Template nicht gefunden
+- `422` – `inhalt` fehlt
+
+---
+
 ## Konfiguration
 
 ### `GET /api/konfiguration`
@@ -1009,3 +1178,5 @@ Gibt öffentlich zugängliche Konfigurationswerte zurück (kein Login erforderli
 | `DELETE` Personen/Verlegeorte/Stolpersteine | ❌ | ✅ |
 | `DELETE` Dokumente | ✅ | ✅ |
 | Import | ✅ | ✅ |
+| Export (Wikitext erzeugen, Diff) | ❌ | ✅ |
+| Templates lesen/bearbeiten | ❌ | ✅ |
