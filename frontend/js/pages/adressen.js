@@ -110,7 +110,9 @@ document.addEventListener('alpine:init', () => {
             this.stadtteile = st;
             this.strassen   = sr;
             this.plzListe   = pl;
-            await this.loadSub('lokationen');
+            const pendingSub = Alpine.store('router').sub;
+            const validSubs  = ['lokationen', 'staedte', 'stadtteile', 'strassen', 'plz'];
+            await this.loadSub(validSubs.includes(pendingSub) ? pendingSub : 'lokationen');
         },
 
         async loadSub(name) {
@@ -382,6 +384,12 @@ document.addEventListener('alpine:init', () => {
         openWikidata(wikidataId) {
             if (wikidataId) {
                 window.open(`https://www.wikidata.org/wiki/${wikidataId}`, '_blank');
+            }
+        },
+
+        openWikipedia(articleName) {
+            if (articleName) {
+                window.open(`https://de.wikipedia.org/wiki/${encodeURIComponent(articleName)}`, '_blank');
             }
         },
 

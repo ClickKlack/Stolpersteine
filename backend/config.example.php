@@ -16,6 +16,7 @@ return [
     'app' => [
         'debug'        => false,           // true nur lokal, nie auf Produktion!
         'upload_dir'   => __DIR__ . '/../uploads',
+        'spiegel_dir'  => __DIR__ . '/../storage/spiegel',  // lokale PDF-Spiegelung, nicht web-zugänglich
         'base_url'     => 'https://example.com',
         // CORS: erlaubte Frontend-Origins (nur relevant wenn debug = true)
         'cors_origins' => [

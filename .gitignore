@@ -25,8 +25,15 @@ backend/vendor/
 # Anwendungskonfiguration (enthält DB-Zugangsdaten)
 backend/config.php
 
-# Uploads (Nutzdaten, nicht versioniert)
+# Uploads & Dokumente (Nutzdaten, nicht versioniert)
 uploads/
+storage/
+
+#Skripte
+scripts/
+
+#lokale TODO
+TODO.md
 
 # Logs
 *.log

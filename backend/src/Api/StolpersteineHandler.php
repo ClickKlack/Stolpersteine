@@ -86,6 +86,17 @@ class StolpersteineHandler extends BaseHandler
 
         $this->validateRequiredFields($body);
 
+        // Status darf nur aus "validierung" heraus wenn Person UND Verlegeort "ok" sind
+        $neuerStatus = $body['status'] ?? $alt['status'];
+        if ($neuerStatus !== 'validierung') {
+            if (($alt['person_status'] ?? '') !== 'ok' || ($alt['verlegeort_status'] ?? '') !== 'ok') {
+                Response::error(
+                    'Der Status des Stolpersteins kann erst geändert werden, wenn Person und Verlegeort den Status "Ok" haben.',
+                    422
+                );
+            }
+        }
+
         $this->repo->update($id, $body, $user['benutzername']);
         $neu = $this->repo->findById($id);
 

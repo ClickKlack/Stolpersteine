@@ -7,7 +7,7 @@ document.addEventListener('alpine:init', () => {
         error: null,
 
         // ----- Filter ------------------------------------------------------
-        filter: { name: '' },
+        filter: { name: '', status: '' },
 
         // ----- Modal -------------------------------------------------------
         modalOpen: false,
@@ -52,7 +52,8 @@ document.addEventListener('alpine:init', () => {
             this.error   = null;
             try {
                 const params = new URLSearchParams();
-                if (this.filter.name) params.set('name', this.filter.name);
+                if (this.filter.name)   params.set('name',   this.filter.name);
+                if (this.filter.status) params.set('status', this.filter.status);
                 const qs = params.toString() ? '?' + params.toString() : '';
                 this.personen = await api.get('/personen' + qs);
             } catch (e) {
@@ -63,7 +64,7 @@ document.addEventListener('alpine:init', () => {
         },
 
         resetFilter() {
-            this.filter = { name: '' };
+            this.filter = { name: '', status: '' };
             this.load();
         },
 
@@ -79,6 +80,8 @@ document.addEventListener('alpine:init', () => {
                 sterbedatum_genauigkeit: 'tag', sterbedatum_voll: '',
                 sterbedatum_jahr: '', sterbedatum_monat: '',
                 biografie_kurz: '', wikidata_id_person: '',
+                biografie_dok_url: null, biografie_dok_titel: null,
+                status: 'validierung',
             };
             this.modalOpen = true;
             this.$nextTick(() => document.getElementById('p-nachname')?.focus());
@@ -104,8 +107,11 @@ document.addEventListener('alpine:init', () => {
                 sterbedatum_voll:    ster.voll,
                 sterbedatum_jahr:    ster.jahr,
                 sterbedatum_monat:   ster.monat,
-                biografie_kurz:     person.biografie_kurz     ?? '',
-                wikidata_id_person: person.wikidata_id_person ?? '',
+                biografie_kurz:      person.biografie_kurz      ?? '',
+                wikidata_id_person:  person.wikidata_id_person  ?? '',
+                biografie_dok_url:   person.biografie_dok_url   ?? null,
+                biografie_dok_titel: person.biografie_dok_titel ?? null,
+                status:              person.status              ?? 'validierung',
             };
             this.modalOpen = true;
             this.$nextTick(() => document.getElementById('p-nachname')?.focus());
@@ -134,6 +140,7 @@ document.addEventListener('alpine:init', () => {
                     sterbedatum_genauigkeit:  this.form.sterbedatum_genauigkeit  || null,
                     biografie_kurz:     this.form.biografie_kurz     || null,
                     wikidata_id_person: this.form.wikidata_id_person  || null,
+                    status:             this.form.status || 'validierung',
                 };
 
                 if (this.modalMode === 'create') {
@@ -178,6 +185,10 @@ document.addEventListener('alpine:init', () => {
         },
 
         // ----- Hilfsfunktionen ---------------------------------------------
+
+        statusLabel(s) {
+            return { ok: 'Ok', validierung: 'Validierung' }[s] ?? s;
+        },
 
         // ISO-Datum anzeigen je nach Genauigkeit
         formatDate(iso, genauigkeit) {

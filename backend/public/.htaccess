@@ -6,3 +6,15 @@ RewriteRule ^ - [L]
 
 # Alles andere an index.php
 RewriteRule ^ index.php [L]
+
+# Sensitive Dateien und Verzeichnisse sperren
+<FilesMatch "^(config\.php|composer\.(json|lock)|\.env)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+<IfModule mod_authz_core.c>
+    <DirectoryMatch "/(src|vendor)/">
+        Require all denied
+    </DirectoryMatch>
+</IfModule>

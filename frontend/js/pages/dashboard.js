@@ -9,16 +9,30 @@ document.addEventListener('alpine:init', () => {
             this.error   = null;
 
             try {
-                const [personen, steine, orte] = await Promise.all([
+                const [personen, steine, orte, dokumente, staedte, stadtteile, strassen, lokationen, plz] = await Promise.all([
                     api.get('/personen'),
                     api.get('/stolpersteine'),
                     api.get('/verlegeorte'),
+                    api.get('/dokumente'),
+                    api.get('/adressen/staedte'),
+                    api.get('/adressen/alle-stadtteile'),
+                    api.get('/adressen/alle-strassen'),
+                    api.get('/adressen/alle-lokationen'),
+                    api.get('/adressen/alle-plz'),
                 ]);
 
+                const count = arr => Array.isArray(arr) ? arr.length : '–';
+
                 this.stats = {
-                    personen: Array.isArray(personen) ? personen.length : '–',
-                    steine:   Array.isArray(steine)   ? steine.length   : '–',
-                    orte:     Array.isArray(orte)      ? orte.length     : '–',
+                    personen:   count(personen),
+                    steine:     count(steine),
+                    orte:       count(orte),
+                    dokumente:  count(dokumente),
+                    staedte:    count(staedte),
+                    stadtteile: count(stadtteile),
+                    strassen:   count(strassen),
+                    lokationen: count(lokationen),
+                    plz:        count(plz),
                 };
             } catch (e) {
                 this.error = e.message || 'Daten konnten nicht geladen werden.';

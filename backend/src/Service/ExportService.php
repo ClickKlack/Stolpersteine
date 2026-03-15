@@ -193,7 +193,13 @@ class ExportService
                 s.wikidata_id_stein,
                 s.osm_id,
                 s.status,
-                s.zustand
+                s.zustand,
+                dok.quelle_url          AS dok_url,
+                dok.titel               AS dok_titel,
+                dok.dateiname           AS dok_dateiname,
+                dok.quelle              AS dok_lizenz,
+                dok.typ                 AS dok_typ,
+                dok.groesse_bytes       AS dok_groesse_bytes
              FROM stolpersteine s
              JOIN personen     p   ON p.id  = s.person_id
              JOIN verlegeorte  v   ON v.id  = s.verlegeort_id
@@ -201,10 +207,11 @@ class ExportService
              LEFT JOIN strassen          str ON str.id = al.strasse_id
              LEFT JOIN stadtteile        st  ON st.id  = al.stadtteil_id
              LEFT JOIN plz                   ON plz.id = al.plz_id
-             WHERE st.id = ?
+             LEFT JOIN dokumente dok         ON dok.id = p.biografie_dokument_id
+             WHERE st.id = ? AND s.status = ?
              ORDER BY p.nachname, p.vorname'
         );
-        $stmt->execute([$stadtteilId]);
+        $stmt->execute([$stadtteilId, 'freigegeben']);
         return $stmt->fetchAll();
     }
 
@@ -251,13 +258,115 @@ class ExportService
 
             // Person (zusammengesetzt)
             '[[PERSON.BIOGRAFIE_KURZ]]'   => $stein['biografie_kurz']       ?? '',
+            '[[PERSON.BIOGRAFIE_LANG]]'   => $this->formatBiografieLang(
+                $stein['biografie_kurz']      ?? null,
+                $stein['dok_url']             ?? null,
+                $stein['dok_titel']           ?? null,
+                $stein['dok_dateiname']       ?? null,
+                $stein['dok_lizenz']          ?? null,
+                $stein['dok_typ']             ?? null,
+                isset($stein['dok_groesse_bytes']) ? (int) $stein['dok_groesse_bytes'] : null
+            ),
             '[[PERSON.NAME_VOLL]]'        => trim(
                 $stein['nachname'] . ', ' . $stein['vorname']
                 . (($stein['geburtsname'] ?? '') !== '' ? ' geb. ' . $stein['geburtsname'] : '')
             ),
+
+            // Dokument (erstes externes PDF der Person)
+            '[[DOK.URL]]'         => $stein['dok_url']                      ?? '',
+            '[[DOK.DATEINAME]]'   => $stein['dok_dateiname']                ?? '',
+            '[[DOK.LIZENZ]]'      => $stein['dok_lizenz']                   ?? '',
+            '[[DOK.TYP_GROESSE]]' => $this->formatDokTypGroesse(
+                $stein['dok_url']           ?? null,
+                isset($stein['dok_groesse_bytes']) ? (int) $stein['dok_groesse_bytes'] : null
+            ),
+            '[[DOK.GROESSE_KB]]'  => $this->formatGroesseKb(
+                isset($stein['dok_groesse_bytes']) ? (int) $stein['dok_groesse_bytes'] : null
+            ),
         ];
 
         return strtr($vorlage, $vars);
+    }
+
+    /**
+     * Formatiert Typ und Größe eines Dokuments: "(PDF; 173,1 kB)" oder "(PDF)"
+     */
+    private function formatDokTypGroesse(?string $url, ?int $bytes): string
+    {
+        if ($url === null) {
+            return '';
+        }
+        $ext = strtoupper(pathinfo(parse_url($url, PHP_URL_PATH) ?? '', PATHINFO_EXTENSION));
+        $typ = $ext !== '' ? $ext : 'PDF';
+
+        $groesse = $this->formatGroesseKb($bytes);
+        return $groesse !== '' ? '(' . $typ . '; ' . $groesse . ')' : '(' . $typ . ')';
+    }
+
+    /**
+     * Formatiert Bytes als "173,1 kB" (deutsches Dezimalzeichen).
+     */
+    private function formatGroesseKb(?int $bytes): string
+    {
+        if ($bytes === null || $bytes <= 0) {
+            return '';
+        }
+        return number_format($bytes / 1024.0, 1, ',', '.') . ' kB';
+    }
+
+    /**
+     * Baut [[PERSON.BIOGRAFIE_LANG]]:
+     * "Biografie: " + kurz + <br/><br/> (nur wenn beide) + [URL ''Titel''] (Quelle; TYP; Größe)
+     */
+    private function formatBiografieLang(
+        ?string $kurz,
+        ?string $url,
+        ?string $titel,
+        ?string $dateiname,
+        ?string $quelle,
+        ?string $typ,
+        ?int    $bytes
+    ): string {
+        $kurz = ($kurz !== null && $kurz !== '') ? $kurz : null;
+        $url  = ($url  !== null && $url  !== '') ? $url  : null;
+
+        if ($kurz === null && $url === null) {
+            return '';
+        }
+
+        $parts = ['Biografie: '];
+
+        if ($kurz !== null) {
+            $parts[] = $kurz;
+        }
+
+        if ($kurz !== null && $url !== null) {
+            $parts[] = '<br /><br />';
+        }
+
+        if ($url !== null) {
+            $anzeige = $titel ?: $dateiname ?: $url;
+            $link    = "[{$url} ''{$anzeige}'']";
+
+            $suffix = [];
+            if ($quelle !== null && $quelle !== '') {
+                $suffix[] = $quelle;
+            }
+            if ($typ !== null && $typ !== '') {
+                $suffix[] = strtoupper($typ);
+            }
+            if ($bytes !== null && $bytes > 0) {
+                $suffix[] = number_format($bytes / 1024.0, 1, ',', '.') . '&nbsp;kB';
+            }
+
+            if ($suffix !== []) {
+                $link .= ' (' . implode('; ', $suffix) . ')';
+            }
+
+            $parts[] = $link;
+        }
+
+        return implode('', $parts);
     }
 
     /**

@@ -55,11 +55,16 @@ Stolpersteine/
 │   ├── db/          schema.sql
 │   ├── API.md       Vollständige Endpunkt-Dokumentation
 │   └── config.php   Nicht im Git (siehe config.example.php)
-├── frontend/        Alpine.js + Pico CSS (kein Build-Schritt)
+├── frontend/        Verwaltungsoberfläche (Alpine.js + Pico CSS, kein Build-Schritt)
 │   ├── index.html   App-Shell (Login, Navigation, Router-Outlet)
 │   ├── css/app.css
 │   └── js/          Stores, API-Client, Seiten-Komponenten
+├── website/         Öffentliche Website (Alpine.js + Leaflet, kein Build-Schritt)
+│   ├── index.html   SPA (Karte, Personenliste, Detailansicht)
+│   ├── css/app.css
+│   └── js/          Router-Store, API-Client, Seiten-Komponenten
 ├── bruno/           API-Collection für Bruno
+├── scripts/         Hilfsskripte (deploy.sh)
 └── uploads/         Hochgeladene Dateien (nicht im Git)
 ```
 
@@ -71,7 +76,7 @@ Basis-URL: `http://localhost:8080/api`
 
 Vollständige Dokumentation aller Endpunkte: [backend/API.md](backend/API.md)
 
-**Übersicht:**
+**Verwaltungs-Endpunkte** (erfordern Login):
 
 | Ressource | Endpunkte |
 |---|---|
@@ -88,6 +93,14 @@ Vollständige Dokumentation aller Endpunkte: [backend/API.md](backend/API.md)
 | Export | `GET /export/wikipedia`, `GET /export/wikipedia/diff` |
 | Templates | `GET /templates`, `GET/PUT /templates/{id}` |
 | Konfiguration | `GET /konfiguration` |
+
+**Öffentliche Endpunkte** (kein Login, nur `status = freigegeben`):
+
+| Ressource | Endpunkte |
+|---|---|
+| Statistiken | `GET /public/statistiken` |
+| Stolpersteine | `GET /public/stolpersteine`, `GET /public/stolpersteine/{id}` |
+| Suche | `GET /public/suche?q=` |
 
 ---
 
@@ -136,6 +149,33 @@ bru run bruno/ --env local --recursive
 
 ---
 
+## Deployment
+
+Für Shared Hosting mit SSH-Zugang:
+
+```bash
+# 1. SSH-Host in scripts/deploy.sh eintragen
+# 2. Trockenübung
+bash scripts/deploy.sh --dry-run
+# 3. Deployen
+bash scripts/deploy.sh
+```
+
+**Verzeichnisstruktur beim Hoster:**
+
+```
+public_html/            ← Öffentliche Website (website/)
+public_html/verwaltung/ ← Verwaltungsoberfläche (frontend/)
+public_html/api/        ← PHP-Backend (backend/public/ + src/ + vendor/)
+```
+
+**Einmalig auf dem Server anlegen** (nicht per Skript deployt):
+- `public_html/api/config.php` – Produktionskonfiguration (DB, kein Debug)
+- `public_html/api/uploads/` – Verzeichnis für Foto-Uploads
+- `public_html/api/spiegel/` – Verzeichnis für gespiegelte PDFs
+
+---
+
 ## Entwicklungsstand
 
 Siehe [projekt_solptersteine.md](projekt_solptersteine.md) für die vollständige Roadmap.
@@ -146,4 +186,5 @@ Siehe [projekt_solptersteine.md](projekt_solptersteine.md) für die vollständig
 - ✅ Phase 4 – Excel/CSV-Import (inkl. RichText, HTML-Stripping, vollständiges Feld-Mapping)
 - ✅ Phase 5 – Wikipedia-Export & Abgleich (Templates, Wikitext-Generierung, Live-Diff, Zeichen-Hervorhebung)
 - ⬜ Phase 6 – Externe Validierung (Wikidata/OSM)
-- 🔄 Phase 7 – Frontend (Personen ✅, Verlegeorte ✅, Stolpersteine ✅, Adress-Normalisierung ✅, Adress-CRUD-Verwaltung ✅, Grid-Positionierung ✅, Foto-Verwaltung ✅, Koordinaten-Overrides ✅, Import-Wizard ✅, Export-Seite ✅)
+- ✅ Phase 7 – Frontend (Verwaltungsoberfläche vollständig)
+- ✅ Phase 8 – Öffentliche Website (Karte, Personenliste, Detailansicht)

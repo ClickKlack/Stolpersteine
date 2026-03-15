@@ -1,0 +1,21 @@
+meta {
+  name: Public – Statistiken
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/public/statistiken
+  body: none
+  auth: none
+}
+
+tests {
+  test("Status 200", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.data).to.have.property("steine");
+    expect(res.body.data).to.have.property("personen");
+    expect(res.body.data).to.have.property("strassen");
+    expect(res.body.data).to.have.property("stadtteile");
+  });
+}

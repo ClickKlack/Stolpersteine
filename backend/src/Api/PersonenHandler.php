@@ -6,21 +6,24 @@ namespace Stolpersteine\Api;
 
 use Stolpersteine\Auth\Auth;
 use Stolpersteine\Repository\PersonRepository;
+use Stolpersteine\Repository\StolpersteinRepository;
 use Stolpersteine\Repository\AuditRepository;
 use Stolpersteine\Service\SuchindexService;
 
 class PersonenHandler extends BaseHandler
 {
     private PersonRepository $repo;
+    private StolpersteinRepository $steinRepo;
     private SuchindexService $suchindex;
 
     public function __construct()
     {
         $this->repo      = new PersonRepository();
+        $this->steinRepo = new StolpersteinRepository();
         $this->suchindex = new SuchindexService();
     }
 
-    // GET /personen?nachname=&geburtsname=&geburtsjahr=
+    // GET /personen?name=&geburtsjahr=&status=
     public function index(array $params): void
     {
         Auth::required();
@@ -28,6 +31,7 @@ class PersonenHandler extends BaseHandler
         $filter = array_filter([
             'name'        => $this->queryParam('name'),
             'geburtsjahr' => $this->queryParam('geburtsjahr'),
+            'status'      => $this->queryParam('status'),
         ]);
 
         $personen = $this->repo->findAll($filter);
@@ -81,6 +85,11 @@ class PersonenHandler extends BaseHandler
 
         $this->repo->update($id, $body, $user['benutzername']);
         $neu = $this->repo->findById($id);
+
+        // Wenn Person auf "validierung" gesetzt wird → alle zugehörigen Stolpersteine ebenfalls
+        if (($neu['status'] ?? '') === 'validierung') {
+            $this->steinRepo->setStatusForPerson($id, 'validierung');
+        }
 
         AuditRepository::log($user['benutzername'], 'UPDATE', 'personen', $id, $alt, $neu);
         $this->suchindex->updateForPerson($id);

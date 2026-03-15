@@ -20,17 +20,20 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_PHP="${SCRIPT_DIR}/backend/config.php"
 UPLOADS_DIR="${SCRIPT_DIR}/uploads"
+SPIEGEL_DIR="${SCRIPT_DIR}/storage/spiegel"
 
 # -----------------------------------------------------------------------------
 # Argumente
 # -----------------------------------------------------------------------------
 UPLOADS_BEHALTEN=false
+SPIEGEL_BEHALTEN=false
 ADRESSEN_LOESCHEN=false
 FORCE=false
 
 for arg in "$@"; do
     case "$arg" in
         --uploads-behalten)  UPLOADS_BEHALTEN=true ;;
+        --spiegel-behalten)  SPIEGEL_BEHALTEN=true ;;
         --adressen-loeschen) ADRESSEN_LOESCHEN=true ;;
         --force)             FORCE=true ;;
         --help|-h)
@@ -39,6 +42,7 @@ for arg in "$@"; do
             echo "  --adressen-loeschen  Adressnormalisierung EBENFALLS löschen"
             echo "                       (adress_lokationen, plz, stadtteile, strassen, staedte)"
             echo "  --uploads-behalten   Hochgeladene Dateien im uploads/-Verzeichnis NICHT löschen"
+            echo "  --spiegel-behalten   Gespiegelte Dateien in storage/spiegel/ NICHT löschen"
             echo "  --force              Keine Sicherheitsabfrage"
             exit 0
             ;;
@@ -81,6 +85,9 @@ if [[ "$ADRESSEN_LOESCHEN" == true ]]; then
 fi
 if [[ "$UPLOADS_BEHALTEN" == false ]]; then
     echo "    uploads/* (alle hochgeladenen Dateien)"
+fi
+if [[ "$SPIEGEL_BEHALTEN" == false ]]; then
+    echo "    storage/spiegel/* (alle gespiegelten Dateien)"
 fi
 echo ""
 echo "  ERHALTEN bleiben:"
@@ -167,6 +174,19 @@ if [[ "$UPLOADS_BEHALTEN" == false ]]; then
         echo "  ✓ uploads/ geleert."
     else
         echo "  uploads/-Verzeichnis nicht gefunden, übersprungen."
+    fi
+fi
+
+# -----------------------------------------------------------------------------
+# storage/spiegel löschen
+# -----------------------------------------------------------------------------
+if [[ "$SPIEGEL_BEHALTEN" == false ]]; then
+    if [[ -d "$SPIEGEL_DIR" ]]; then
+        echo "Leere storage/spiegel/ …"
+        find "$SPIEGEL_DIR" -mindepth 1 -delete
+        echo "  ✓ storage/spiegel/ geleert."
+    else
+        echo "  storage/spiegel/-Verzeichnis nicht gefunden, übersprungen."
     fi
 fi
 

@@ -28,4 +28,10 @@ const ICONS = {
         <circle cx="12" cy="12" r="11" fill="#006699"/>
         <text x="12" y="17" text-anchor="middle" font-family="serif" font-size="14" font-weight="bold" fill="white">W</text>
     </svg>`,
+
+    // Wikipedia-Logo (vereinfacht, Wikipedia-Blau #3366CC)
+    wikipedia: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+        <circle cx="12" cy="12" r="11" fill="#3366CC"/>
+        <text x="12" y="17" text-anchor="middle" font-family="serif" font-size="14" font-weight="bold" fill="white">W</text>
+    </svg>`,
 };

@@ -1,0 +1,22 @@
+meta {
+  name: Public – Suche
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/public/suche
+  body: none
+  auth: none
+}
+
+query {
+  q: Schmidt
+}
+
+tests {
+  test("Status 200", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.data).to.be.an("array");
+  });
+}

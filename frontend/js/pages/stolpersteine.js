@@ -615,11 +615,23 @@ document.addEventListener('alpine:init', () => {
         },
 
         statusLabel(s) {
-            return { neu: 'Neu', aktiv: 'Aktiv', entfernt: 'Entfernt', zerstoert: 'Zerstört' }[s] || s;
+            return {
+                neu:         'Neu',
+                validierung: 'Validierung',
+                freigegeben: 'Freigegeben',
+                archiviert:  'Archiviert',
+                fehlerhaft:  'Fehlerhaft',
+            }[s] || s;
         },
 
         zustandLabel(z) {
-            return { verfuegbar: 'Verfügbar', beschaedigt: 'Beschädigt', gestohlen: 'Gestohlen', ersetzt: 'Ersetzt' }[z] || z;
+            return {
+                verfuegbar:    'Verfügbar',
+                stein_fehlend: 'Stein fehlend',
+                kein_stein:    'Kein Stein',
+                beschaedigt:   'Beschädigt',
+                unleserlich:   'Unleserlich',
+            }[z] || z;
         },
 
         // ----- Koordinaten-Override Karte ----------------------------------

@@ -64,9 +64,11 @@ CREATE TABLE IF NOT EXISTS personen (
     geburtsdatum_genauigkeit    ENUM('tag', 'monat', 'jahr'),
     sterbedatum                 DATE,
     sterbedatum_genauigkeit     ENUM('tag', 'monat', 'jahr'),
-    biografie_kurz      TEXT,
-    wikipedia_name      VARCHAR(255),
-    wikidata_id_person  VARCHAR(50),
+    biografie_kurz          TEXT,
+    biografie_dokument_id   INT NULL    COMMENT 'Biografie-Dokument (max. 1 je Person)',
+    wikipedia_name          VARCHAR(255),
+    wikidata_id_person      VARCHAR(50),
+    status              ENUM('ok', 'validierung') NOT NULL DEFAULT 'validierung',
     erstellt_am         DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     erstellt_von        VARCHAR(100)    NOT NULL,
     geaendert_am        DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -158,6 +160,7 @@ CREATE TABLE IF NOT EXISTS verlegeorte (
     grid_n                  INT             COMMENT 'Rasterspalte, 1-basiert, Ursprung links oben',
     grid_m                  INT             COMMENT 'Rasterzeile, 1-basiert, Ursprung links oben',
     raster_beschreibung     TEXT,
+    status              ENUM('ok', 'validierung') NOT NULL DEFAULT 'validierung',
     erstellt_am             DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     erstellt_von            VARCHAR(100)    NOT NULL,
     geaendert_am            DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -195,10 +198,7 @@ CREATE TABLE IF NOT EXISTS stolpersteine (
                         'validierung',
                         'freigegeben',
                         'archiviert',
-                        'fehlerhaft',
-                        'abgleich_wikipedia',
-                        'abgleich_osm',
-                        'abgleich_wikidata'
+                        'fehlerhaft'
                     ) NOT NULL DEFAULT 'neu',
     zustand         ENUM(
                         'verfuegbar',
@@ -226,27 +226,53 @@ CREATE TABLE IF NOT EXISTS stolpersteine (
 -- ------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS dokumente (
-    id                  INT             NOT NULL AUTO_INCREMENT,
-    person_id           INT,
-    stolperstein_id     INT,
-    titel               VARCHAR(255)    NOT NULL,
-    beschreibung_kurz   TEXT,
-    typ                 VARCHAR(20)     COMMENT 'z.B. foto, pdf, scan, url',
-    dateiname           VARCHAR(255),
-    dateipfad           VARCHAR(255),
-    quelle_url          VARCHAR(255),
-    hash                CHAR(64)        UNIQUE COMMENT 'SHA-256 zur Duplikaterkennung',
-    groesse_bytes       INT,
-    erstellt_am         DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    erstellt_von        VARCHAR(100)    NOT NULL,
-    geaendert_am        DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    geaendert_von       VARCHAR(100)    NOT NULL,
+    id                      INT             NOT NULL AUTO_INCREMENT,
+    stolperstein_id         INT,
+    titel                   VARCHAR(255)    NOT NULL,
+    beschreibung_kurz       TEXT,
+    typ                     VARCHAR(20)     COMMENT 'z.B. foto, pdf, scan, url',
+    dateiname               VARCHAR(255),
+    dateipfad               VARCHAR(255),
+    quelle_url              VARCHAR(255),
+    hash                    CHAR(64)        UNIQUE COMMENT 'SHA-256 zur Duplikaterkennung',
+    groesse_bytes           INT,
+    quelle                  VARCHAR(255)    COMMENT 'Quellenhinweis oder Lizenz, Default: Domain aus quelle_url',
+    spiegel_pfad            VARCHAR(255)    COMMENT 'Lokaler Spiegel-Pfad (nicht web-zugänglich)',
+    spiegel_groesse_bytes   INT,
+    url_geprueft_am         DATETIME        COMMENT 'Zeitpunkt der letzten URL-Prüfung',
+    url_status              SMALLINT        COMMENT 'HTTP-Statuscode der letzten URL-Prüfung',
+    erstellt_am             DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    erstellt_von            VARCHAR(100)    NOT NULL,
+    geaendert_am            DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    geaendert_von           VARCHAR(100)    NOT NULL,
     PRIMARY KEY (id),
-    CONSTRAINT fk_dok_person    FOREIGN KEY (person_id)       REFERENCES personen(id)     ON DELETE SET NULL ON UPDATE CASCADE,
-    CONSTRAINT fk_dok_stein     FOREIGN KEY (stolperstein_id) REFERENCES stolpersteine(id) ON DELETE SET NULL ON UPDATE CASCADE,
-    INDEX idx_person    (person_id),
-    INDEX idx_stein     (stolperstein_id)
+    CONSTRAINT fk_dok_stein FOREIGN KEY (stolperstein_id) REFERENCES stolpersteine(id) ON DELETE SET NULL ON UPDATE CASCADE,
+    UNIQUE KEY uq_quelle_url (quelle_url(191)),
+    INDEX idx_stein (stolperstein_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- ------------------------------------------------------------
+-- Dokument-Personen-Zuordnung (m:n)
+-- ------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS dokument_personen (
+    id              INT NOT NULL AUTO_INCREMENT,
+    dokument_id     INT NOT NULL,
+    person_id       INT NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_dok_person (dokument_id, person_id),
+    CONSTRAINT fk_dp_dokument FOREIGN KEY (dokument_id) REFERENCES dokumente(id)  ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_dp_person   FOREIGN KEY (person_id)   REFERENCES personen(id)   ON DELETE CASCADE ON UPDATE CASCADE,
+    INDEX idx_dokument (dokument_id),
+    INDEX idx_person   (person_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- FK personen → dokumente (nachträglich, da dokumente nach personen definiert)
+ALTER TABLE personen
+    ADD CONSTRAINT fk_person_biografie_dok
+        FOREIGN KEY (biografie_dokument_id) REFERENCES dokumente(id)
+        ON DELETE SET NULL ON UPDATE CASCADE;
 
 
 -- ------------------------------------------------------------

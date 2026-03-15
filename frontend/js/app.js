@@ -63,9 +63,10 @@ document.addEventListener('alpine:init', () => {
     // -----------------------------------------------------------------------
     Alpine.store('router', {
         current: 'dashboard',
+        sub: null,
 
         // Alle bekannten Seiten
-        pages: ['dashboard', 'personen', 'stolpersteine', 'verlegeorte', 'dokumente', 'suche', 'import', 'export', 'adressen', 'benutzerverwaltung', 'profil'],
+        pages: ['dashboard', 'personen', 'stolpersteine', 'verlegeorte', 'dokumente', 'import', 'export', 'adressen', 'benutzerverwaltung', 'profil'],
 
         init() {
             this._sync();
@@ -73,8 +74,10 @@ document.addEventListener('alpine:init', () => {
         },
 
         _sync() {
-            const hash = location.hash.replace(/^#\/?/, '') || 'dashboard';
-            this.current = this.pages.includes(hash) ? hash : 'dashboard';
+            const raw  = location.hash.replace(/^#\/?/, '') || 'dashboard';
+            const [page, sub] = raw.split('/');
+            this.current = this.pages.includes(page) ? page : 'dashboard';
+            this.sub     = sub || null;
         },
 
         go(page) {

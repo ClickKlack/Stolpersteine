@@ -129,7 +129,7 @@ Stolpersteine/
 ├── backend/
 │   ├── public/              # Document Root des Webservers
 │   │   ├── index.php        # Einziger Einstiegspunkt (Router)
-│   │   └── .htaccess        # Alle Requests → index.php
+│   │   └── .htaccess        # Alle Requests → index.php; schützt src/, vendor/, config.php
 │   ├── src/
 │   │   ├── Api/
 │   │   │   ├── BaseHandler.php       # Basisklasse (jsonBody, intParam, queryParam)
@@ -146,7 +146,8 @@ Stolpersteine/
 │   │   │   ├── SucheHandler.php
 │   │   │   ├── ImportHandler.php     # POST /api/import/analyze|preview|execute
 │   │   │   ├── ExportHandler.php     # GET /export/wikipedia, GET /export/wikipedia/diff
-│   │   │   └── TemplateHandler.php   # GET/PUT /templates, GET /templates/{id}
+│   │   │   ├── TemplateHandler.php   # GET/PUT /templates, GET /templates/{id}
+│   │   │   └── PublicHandler.php     # GET /public/* (kein Auth, nur freigegeben)
 │   │   ├── Repository/
 │   │   │   ├── AuditRepository.php   # Zentrales Audit-Log
 │   │   │   ├── PersonRepository.php
@@ -157,6 +158,7 @@ Stolpersteine/
 │   │   │   └── TemplateRepository.php    # Templates mit Versionierung
 │   │   ├── Service/
 │   │   │   ├── DateiService.php      # Datei-Upload, Duplikat-Check via SHA-256
+│   │   │   ├── DokumentService.php   # URL-Check, PDF-Mirroring, Metadaten
 │   │   │   ├── ImportService.php     # Excel/CSV-Import, Dry-Run, Duplikat-Erkennung
 │   │   │   ├── SuchindexService.php  # Suchindex aufbauen/aktualisieren
 │   │   │   └── ExportService.php     # Wikitext-Generierung, MediaWiki-API-Diff
@@ -167,11 +169,11 @@ Stolpersteine/
 │   │       └── Database.php # PDO-Singleton, setzt UTC + utf8mb4
 │   ├── db/
 │   │   ├── schema.sql       # Vollständiges DB-Schema v1.0
-│   │   └── migrations/      # Zukünftige Schema-Änderungen
+│   │   └── migrations/      # Schema-Änderungen
 │   ├── composer.json        # PSR-4 Autoloading (Stolpersteine\)
 │   └── config.example.php  # Vorlage für config.php (nicht im Git)
 │
-├── frontend/                # Alpine.js + Pico CSS (kein Build-Schritt)
+├── frontend/                # Verwaltungsoberfläche – Alpine.js + Pico CSS (kein Build-Schritt)
 │   ├── index.html           # App-Shell: Login, Navigation, Router-Outlet
 │   ├── css/
 │   │   └── app.css          # Custom Styles (ergänzt Pico CSS)
@@ -181,11 +183,26 @@ Stolpersteine/
 │       ├── app.js           # Stores (auth, notify, router) + Haupt-Komponente
 │       └── pages/
 │           ├── login.js         # Login-Formular
-│           ├── dashboard.js     # Übersichts-Statistiken
+│           ├── dashboard.js     # Übersichts-Statistiken (klickbare Stat-Karten)
 │           ├── personen.js      # Personen-CRUD (Liste, Filter, Modal, Löschen)
 │           ├── verlegeorte.js   # Verlegeorte-CRUD + Adress-Lookup + Karte + Grid-Konfig
 │           ├── stolpersteine.js # Stolpersteine-CRUD + Grid-Picker + Foto + Karte
+│           ├── adressen.js      # Adress-CRUD (Städte, Stadtteile, Straßen, PLZ, Lokationen)
+│           ├── dokumente.js     # Dokument-Verwaltung
 │           └── export.js        # Export-Seite: Wikipedia, Templates, Diff-Ansicht
+│
+├── website/                 # Öffentliche Website – Alpine.js + Leaflet (kein Build-Schritt)
+│   ├── index.html           # SPA: Karte / Personenliste / Detailansicht
+│   ├── css/
+│   │   └── app.css          # Eigenes Design (würdevoll, kein Pico CSS, responsive)
+│   └── js/
+│       ├── config.js        # API-Basis-URL
+│       ├── api.js           # fetch-Client (ohne credentials)
+│       ├── app.js           # Router-Store (#karte, #liste, #stein/{id}) + Stats-Store
+│       └── pages/
+│           ├── karte.js         # Leaflet-Karte mit Marker-Clustern und Popups
+│           ├── liste.js         # Gefilterte, paginierte Personenliste
+│           └── detail.js        # Detailansicht: Foto, Biografie, Dokument-Link, externe Links
 │
 ├── bruno/                   # Bruno API-Collection (versioniert)
 │   ├── bruno.json
@@ -200,7 +217,11 @@ Stolpersteine/
 │   ├── suche/
 │   ├── import/
 │   ├── export/
-│   └── templates/
+│   ├── templates/
+│   └── public/              # Öffentliche Endpunkte (kein Login)
+│
+├── scripts/
+│   └── deploy.sh            # rsync-Deployment auf Shared Hosting per SSH
 │
 ├── uploads/                 # Fotos, PDFs (außerhalb public/, nicht im Git)
 ├── backend/API.md           # Vollständige Endpunkt-Dokumentation
@@ -464,7 +485,22 @@ Implementiert:
 
 Ausstehend: Dokumente, Suche, Benutzerverwaltung
 
-### Phase 8: Feinschliff & Erweiterungen
-- Optimierungen
-- Erweiterte Filter
-- Vorbereitung öffentliches Frontend
+### ✅ Phase 8: Öffentliche Website
+
+- Neue Backend-Endpunkte `/public/*` (kein Auth, nur `freigegeben`)
+  - `GET /public/statistiken`
+  - `GET /public/stolpersteine` (Liste für Karte + Suche)
+  - `GET /public/stolpersteine/{id}` (Detailansicht)
+  - `GET /public/suche?q=` (Volltext-Suche)
+- Neues Frontend-Verzeichnis `website/` (eigenständig, kein Pico CSS)
+  - Leaflet-Karte mit MarkerCluster-Unterstützung und Popup-Links
+  - Paginierte Personenliste mit clientseitiger Filterung
+  - Detailansicht: Foto (lokal oder Wikimedia Commons), Biografie, Dokument-Link, externe Links (Wikidata, Wikipedia, OpenStreetMap)
+  - Hash-Routing: `#karte`, `#liste`, `#stein/{id}`
+- Deployment-Skript `scripts/deploy.sh` (rsync über SSH)
+- CORS-Konfiguration für Entwicklung (`localhost:8002`)
+
+### Phase 9: Feinschliff & Erweiterungen
+- Wikidata/OSM-Validierung (Phase 6)
+- Benutzerverwaltung im Frontend
+- Optimierungen und erweiterte Filter

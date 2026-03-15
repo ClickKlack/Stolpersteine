@@ -1180,3 +1180,58 @@ Gibt öffentlich zugängliche Konfigurationswerte zurück (kein Login erforderli
 | Import | ✅ | ✅ |
 | Export (Wikitext erzeugen, Diff) | ❌ | ✅ |
 | Templates lesen/bearbeiten | ❌ | ✅ |
+
+---
+
+## Öffentliche Endpunkte
+
+Kein Login erforderlich. Liefern ausschließlich Daten mit `status = 'freigegeben'`.
+
+---
+
+### `GET /api/public/statistiken`
+Aggregatzahlen für die öffentliche Website.
+
+**Antwort `200`:**
+```json
+{
+  "success": true,
+  "data": {
+    "steine": 512,
+    "personen": 498,
+    "strassen": 87,
+    "stadtteile": 23
+  }
+}
+```
+
+---
+
+### `GET /api/public/stolpersteine`
+Liste aller freigegebenen Stolpersteine für Karte und Listenansicht.
+
+**Antwort `200`:** Array mit `id`, `nachname`, `vorname`, `geburtsname`, `geburtsdatum`, `sterbedatum`, `geburtsdatum_genauigkeit`, `sterbedatum_genauigkeit`, `strasse`, `hausnummer`, `stadtteil`, `lat`, `lon`, `foto_pfad`, `foto_eigenes`, `wikimedia_commons`, `zustand`.
+
+---
+
+### `GET /api/public/stolpersteine/{id}`
+Detaildaten eines einzelnen freigegebenen Stolpersteins.
+
+Zusätzliche Felder gegenüber der Liste: `biografie_kurz`, `person_wikipedia`, `wikidata_id_person`, `plz`, `foto_lizenz_autor`, `foto_lizenz_name`, `foto_lizenz_url`, `wikidata_id_stein`, `biografie_dok_url`, `biografie_dok_titel`, `biografie_dok_dateiname`, `biografie_dok_groesse_bytes`, `biografie_dok_quelle`.
+
+**Fehler:** `404` – nicht gefunden oder nicht freigegeben
+
+---
+
+### `GET /api/public/suche?q=`
+Volltext-Suche über freigegebene Stolpersteine (BOOLEAN MODE, max. 100 Treffer).
+
+**Query-Parameter:**
+
+| Parameter | Beschreibung |
+|---|---|
+| `q` | Suchbegriff |
+
+**Antwort `200`:** Array mit `id`, `nachname`, `vorname`, `strasse`, `hausnummer`, `stadtteil`, `lat`, `lon`, `relevanz` — absteigend nach Relevanz.
+
+**Fehler:** `422` – Suchbegriff fehlt

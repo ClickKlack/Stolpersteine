@@ -12,7 +12,7 @@ document.addEventListener('alpine:init', () => {
         error: null,
 
         // ----- Filter ------------------------------------------------------
-        filter: { adresse: '', stadtteil: '' },
+        filter: { adresse: '', stadtteil: '', status: '' },
 
         // ----- Modal -------------------------------------------------------
         modalOpen: false,
@@ -81,6 +81,7 @@ document.addEventListener('alpine:init', () => {
                 const params = new URLSearchParams();
                 if (this.filter.adresse)   params.set('strasse',   this.filter.adresse);
                 if (this.filter.stadtteil) params.set('stadtteil', this.filter.stadtteil);
+                if (this.filter.status)    params.set('status',    this.filter.status);
                 const qs = params.toString() ? '?' + params.toString() : '';
                 this.orte = await api.get('/verlegeorte' + qs);
             } catch (e) {
@@ -91,7 +92,7 @@ document.addEventListener('alpine:init', () => {
         },
 
         resetFilter() {
-            this.filter = { adresse: '', stadtteil: '' };
+            this.filter = { adresse: '', stadtteil: '', status: '' };
             this.load();
         },
 
@@ -111,6 +112,7 @@ document.addEventListener('alpine:init', () => {
                 grid_n:               '',
                 grid_m:               '',
                 raster_beschreibung:  '',
+                status:               'validierung',
             };
             this.adresse = null;
             this._resetLookup();
@@ -147,6 +149,7 @@ document.addEventListener('alpine:init', () => {
                 grid_n:               ort.grid_n               ?? '',
                 grid_m:               ort.grid_m               ?? '',
                 raster_beschreibung:  ort.raster_beschreibung  ?? '',
+                status:               ort.status               ?? 'validierung',
             };
             // Adress-Anzeige aus den JOIN-Feldern des Listeneintrags befüllen
             if (ort.adress_lokation_id) {
@@ -302,6 +305,7 @@ document.addEventListener('alpine:init', () => {
                     grid_n:               this.form.grid_n !== '' ? parseInt(this.form.grid_n) : null,
                     grid_m:               this.form.grid_m !== '' ? parseInt(this.form.grid_m) : null,
                     raster_beschreibung:  this.form.raster_beschreibung  || null,
+                    status:               this.form.status || 'validierung',
                 };
 
                 if (this.modalMode === 'create') {
@@ -344,6 +348,10 @@ document.addEventListener('alpine:init', () => {
             } finally {
                 this.deleting = false;
             }
+        },
+
+        statusLabel(s) {
+            return { ok: 'Ok', validierung: 'Validierung' }[s] ?? s;
         },
 
         // ----- Hilfsfunktionen ---------------------------------------------

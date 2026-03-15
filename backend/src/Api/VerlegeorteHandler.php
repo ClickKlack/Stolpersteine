@@ -6,21 +6,24 @@ namespace Stolpersteine\Api;
 
 use Stolpersteine\Auth\Auth;
 use Stolpersteine\Repository\VerlegeortRepository;
+use Stolpersteine\Repository\StolpersteinRepository;
 use Stolpersteine\Repository\AuditRepository;
 use Stolpersteine\Service\SuchindexService;
 
 class VerlegeorteHandler extends BaseHandler
 {
     private VerlegeortRepository $repo;
+    private StolpersteinRepository $steinRepo;
     private SuchindexService $suchindex;
 
     public function __construct()
     {
         $this->repo      = new VerlegeortRepository();
+        $this->steinRepo = new StolpersteinRepository();
         $this->suchindex = new SuchindexService();
     }
 
-    // GET /verlegeorte?stadtteil=&strasse=&plz=
+    // GET /verlegeorte?stadtteil=&strasse=&plz=&status=
     public function index(array $params): void
     {
         Auth::required();
@@ -29,6 +32,7 @@ class VerlegeorteHandler extends BaseHandler
             'stadtteil' => $this->queryParam('stadtteil'),
             'strasse'   => $this->queryParam('strasse'),
             'plz'       => $this->queryParam('plz'),
+            'status'    => $this->queryParam('status'),
         ]);
 
         Response::success($this->repo->findAll($filter));
@@ -77,6 +81,11 @@ class VerlegeorteHandler extends BaseHandler
 
         $this->repo->update($id, $body, $user['benutzername']);
         $neu = $this->repo->findById($id);
+
+        // Wenn Verlegeort auf "validierung" gesetzt wird → alle zugehörigen Stolpersteine ebenfalls
+        if (($neu['status'] ?? '') === 'validierung') {
+            $this->steinRepo->setStatusForVerlegeort($id, 'validierung');
+        }
 
         AuditRepository::log($user['benutzername'], 'UPDATE', 'verlegeorte', $id, $alt, $neu);
         $this->suchindex->updateForLayingLocation($id);

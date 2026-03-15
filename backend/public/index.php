@@ -47,6 +47,12 @@ $path = preg_replace('#^/api#', '', $uri) ?: '/';
 // Routing
 $router = new Router();
 
+// Öffentliche API (kein Auth erforderlich) – vor allen anderen Routen registrieren
+$router->add('GET', '/public/statistiken',       'Stolpersteine\Api\PublicHandler', 'statistiken');
+$router->add('GET', '/public/stolpersteine',     'Stolpersteine\Api\PublicHandler', 'liste');
+$router->add('GET', '/public/stolpersteine/{id}','Stolpersteine\Api\PublicHandler', 'detail');
+$router->add('GET', '/public/suche',             'Stolpersteine\Api\PublicHandler', 'suche');
+
 // Personen
 $router->add('GET',    '/personen',        'Stolpersteine\Api\PersonenHandler', 'index');
 $router->add('POST',   '/personen',        'Stolpersteine\Api\PersonenHandler', 'create');
@@ -74,11 +80,18 @@ $router->add('POST',   '/stolpersteine/{id}/foto/upload',         'Stolpersteine
 $router->add('POST',   '/stolpersteine/{id}/foto/commons-import', 'Stolpersteine\Api\FotoHandler', 'commonsImport');
 $router->add('DELETE', '/stolpersteine/{id}/foto',                'Stolpersteine\Api\FotoHandler', 'delete');
 
-// Dokumente
-$router->add('GET',    '/dokumente',      'Stolpersteine\Api\DokumenteHandler', 'index');
-$router->add('POST',   '/dokumente',      'Stolpersteine\Api\DokumenteHandler', 'create');
-$router->add('GET',    '/dokumente/{id}', 'Stolpersteine\Api\DokumenteHandler', 'show');
-$router->add('DELETE', '/dokumente/{id}', 'Stolpersteine\Api\DokumenteHandler', 'delete');
+// Dokumente (Literal-Pfade vor {id} registrieren)
+$router->add('GET',    '/dokumente',              'Stolpersteine\Api\DokumenteHandler', 'index');
+$router->add('POST',   '/dokumente',              'Stolpersteine\Api\DokumenteHandler', 'create');
+$router->add('GET',    '/dokumente/url-pruefung', 'Stolpersteine\Api\DokumenteHandler', 'urlPruefung');
+$router->add('POST',   '/dokumente/url-check',    'Stolpersteine\Api\DokumenteHandler', 'urlCheck');
+$router->add('POST',   '/dokumente/url-info',     'Stolpersteine\Api\DokumenteHandler', 'urlInfo');
+$router->add('GET',    '/dokumente/{id}',         'Stolpersteine\Api\DokumenteHandler', 'show');
+$router->add('PUT',    '/dokumente/{id}',         'Stolpersteine\Api\DokumenteHandler', 'update');
+$router->add('GET',    '/dokumente/{id}/spiegel',   'Stolpersteine\Api\DokumenteHandler', 'spiegelDownload');
+$router->add('POST',   '/dokumente/{id}/spiegel',   'Stolpersteine\Api\DokumenteHandler', 'spiegel');
+$router->add('POST',   '/dokumente/{id}/biografie', 'Stolpersteine\Api\DokumenteHandler', 'setBiografie');
+$router->add('DELETE', '/dokumente/{id}',         'Stolpersteine\Api\DokumenteHandler', 'delete');
 
 // Suche
 $router->add('GET', '/suche', 'Stolpersteine\Api\SucheHandler', 'search');

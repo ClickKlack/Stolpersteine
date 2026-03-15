@@ -126,9 +126,11 @@ class SuchindexService
     {
         $stmt = $this->pdo->prepare(
             'SELECT titel, beschreibung_kurz FROM dokumente
-             WHERE stolperstein_id = ? OR person_id IN (
-                 SELECT person_id FROM stolpersteine WHERE id = ?
-             )'
+             WHERE stolperstein_id = ?
+                OR id IN (
+                    SELECT dp.dokument_id FROM dokument_personen dp
+                    WHERE dp.person_id = (SELECT person_id FROM stolpersteine WHERE id = ?)
+                )'
         );
         $stmt->execute([$steinId, $steinId]);
         $zeilen = $stmt->fetchAll();

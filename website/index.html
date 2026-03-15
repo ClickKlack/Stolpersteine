@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stolpersteine Magdeburg</title>
+    <meta name="description" content="Stolpersteine in Magdeburg – Karte, Liste und Biographien der Opfer des Nationalsozialismus.">
+
+    <link rel="stylesheet" href="css/app.css">
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+    <!-- Leaflet MarkerCluster (optional, graceful fallback wenn nicht geladen) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" defer></script>
+
+    <!-- Alpine.js -->
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
+    <!-- App-Skripte -->
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/pages/karte.js"></script>
+    <script src="js/pages/liste.js"></script>
+    <script src="js/pages/detail.js"></script>
+</head>
+<body x-data>
+
+    <!-- ── Header ──────────────────────────────────────────── -->
+    <header>
+        <a class="header-brand" href="#karte">
+            <div class="logo-square">S</div>
+            <span>Stolpersteine Magdeburg</span>
+        </a>
+        <nav>
+            <a href="#karte"
+               :class="{ aktiv: $store.router.is('karte') }">Karte</a>
+            <a href="#liste"
+               :class="{ aktiv: $store.router.is('liste') }">Personen</a>
+        </nav>
+    </header>
+
+    <!-- ── Statistik-Leiste ─────────────────────────────────── -->
+    <div class="stats-bar" x-show="$store.stats.steine !== null">
+        <span><strong x-text="$store.stats.steine"></strong> Stolpersteine</span>
+        <span><strong x-text="$store.stats.personen"></strong> Personen</span>
+        <span><strong x-text="$store.stats.strassen"></strong> Straßen</span>
+        <span><strong x-text="$store.stats.stadtteile"></strong> Stadtteile</span>
+    </div>
+
+    <!-- ── Seiten ───────────────────────────────────────────── -->
+    <main>
+
+        <!-- Karte -->
+        <div x-show="$store.router.is('karte')"
+             x-data="kartePage"
+             x-init="init()">
+            <div x-show="loading" class="ladeindikator">Karte wird geladen …</div>
+            <div x-show="error" class="fehler" x-text="error"></div>
+            <div x-show="!loading && !error" id="karte-container"></div>
+        </div>
+
+        <!-- Liste -->
+        <div x-show="$store.router.is('liste')"
+             x-data="listePage"
+             x-init="$store.router.is('liste') && init()">
+
+            <div x-show="loading" class="ladeindikator">Liste wird geladen …</div>
+            <div x-show="error" class="fehler" x-text="error"></div>
+
+            <template x-if="!loading && !error">
+                <div>
+                    <div class="suche-wrapper">
+                        <input
+                            type="search"
+                            class="suche-input"
+                            placeholder="Name oder Straße suchen …"
+                            x-model="suchbegriff"
+                            @input="onSuche()">
+                    </div>
+
+                    <p class="liste-info">
+                        <span x-text="gefiltert.length"></span> Person<span x-show="gefiltert.length !== 1">en</span>
+                        <template x-if="suchbegriff.trim()">
+                            <span> für „<span x-text="suchbegriff.trim()"></span>"</span>
+                        </template>
+                        <template x-if="seitenAnzahl > 1">
+                            <span> – Seite <span x-text="seite"></span> von <span x-text="seitenAnzahl"></span></span>
+                        </template>
+                    </p>
+
+                    <ul class="stein-liste">
+                        <template x-for="s in aktuelleSeite" :key="s.id">
+                            <li>
+                                <a class="stein-karte" :href="'#stein/' + s.id">
+                                    <template x-if="s.foto_pfad || s.wikimedia_commons">
+                                        <img class="stein-karte-bild"
+                                             :src="s.foto_pfad ? '/api/uploads/' + s.foto_pfad : 'https://commons.wikimedia.org/wiki/Special:FilePath/' + encodeURIComponent((s.wikimedia_commons || '').replace(/ /g,'_')) + '?width=96'"
+                                             :alt="_formatName(s)"
+                                             loading="lazy">
+                                    </template>
+                                    <template x-if="!s.foto_pfad && !s.wikimedia_commons">
+                                        <div class="stein-karte-bild-placeholder">&#9785;</div>
+                                    </template>
+                                    <div class="stein-karte-body">
+                                        <p class="stein-name" x-text="_formatName(s)"></p>
+                                        <div class="stein-meta">
+                                            <span x-show="_formatDaten(s)" x-text="_formatDaten(s)"></span>
+                                            <span x-show="_formatAdresse(s)" x-text="_formatAdresse(s)"></span>
+                                        </div>
+                                    </div>
+                                    <span class="stein-pfeil">›</span>
+                                </a>
+                            </li>
+                        </template>
+                    </ul>
+
+                    <div class="pagination" x-show="seitenAnzahl > 1">
+                        <button @click="vorige()" :disabled="seite === 1">‹ Zurück</button>
+                        <span>Seite <strong x-text="seite"></strong> von <strong x-text="seitenAnzahl"></strong></span>
+                        <button @click="naechste()" :disabled="seite === seitenAnzahl">Weiter ›</button>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- Detail -->
+        <div x-show="$store.router.is('stein')"
+             x-data="detailPage"
+             x-init="$store.router.is('stein') && init()">
+
+            <div x-show="loading" class="ladeindikator">Wird geladen …</div>
+            <div x-show="error" class="fehler" x-text="error"></div>
+
+            <template x-if="!loading && !error && stein">
+                <div>
+                    <button class="detail-zurueck" @click="zurueck()">
+                        ‹ Zurück zur Liste
+                    </button>
+
+                    <div class="detail-grid">
+                        <!-- Foto -->
+                        <div>
+                            <template x-if="fotoSrc">
+                                <img class="detail-foto"
+                                     :src="fotoSrc"
+                                     :alt="name">
+                            </template>
+                            <template x-if="!fotoSrc">
+                                <div class="detail-foto-placeholder">&#9785;</div>
+                            </template>
+                        </div>
+
+                        <!-- Informationen -->
+                        <div class="detail-info">
+                            <h1 x-text="name"></h1>
+
+                            <p class="detail-daten" x-show="daten" x-text="daten"></p>
+
+                            <p class="detail-adresse">
+                                <template x-if="osmLink">
+                                    <a :href="osmLink" target="_blank" rel="noopener">
+                                        <span x-text="adresse"></span> ↗
+                                    </a>
+                                </template>
+                                <template x-if="!osmLink">
+                                    <span x-text="adresse"></span>
+                                </template>
+                            </p>
+
+                            <div class="detail-biografie"
+                                 x-show="stein.biografie_kurz"
+                                 x-text="stein.biografie_kurz"></div>
+
+                            <div class="detail-links">
+                                <!-- Biografie-Dokument -->
+                                <template x-if="stein.biografie_dok_url">
+                                    <a class="detail-link"
+                                       :href="stein.biografie_dok_url"
+                                       target="_blank"
+                                       rel="noopener">
+                                        📄 Biografisches Dokument
+                                        <span class="detail-link-badge" x-show="dokGroesse" x-text="dokGroesse"></span>
+                                    </a>
+                                </template>
+
+                                <!-- Wikidata -->
+                                <template x-if="stein.wikidata_id_person">
+                                    <a class="detail-link"
+                                       :href="'https://www.wikidata.org/wiki/' + stein.wikidata_id_person"
+                                       target="_blank"
+                                       rel="noopener">
+                                        🔗 Wikidata
+                                    </a>
+                                </template>
+
+                                <!-- Wikipedia -->
+                                <template x-if="stein.person_wikipedia">
+                                    <a class="detail-link"
+                                       :href="'https://de.wikipedia.org/wiki/' + encodeURIComponent(stein.person_wikipedia)"
+                                       target="_blank"
+                                       rel="noopener">
+                                        📖 Wikipedia
+                                    </a>
+                                </template>
+
+                                <!-- Wikimedia Commons -->
+                                <template x-if="stein.wikimedia_commons">
+                                    <a class="detail-link"
+                                       :href="'https://commons.wikimedia.org/wiki/File:' + encodeURIComponent(stein.wikimedia_commons)"
+                                       target="_blank"
+                                       rel="noopener">
+                                        🖼 Wikimedia Commons
+                                    </a>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+    </main>
+
+    <!-- ── Footer ───────────────────────────────────────────── -->
+    <footer>
+        <p>Stolpersteine Magdeburg · Daten ohne Gewähr · <a href="tbd" target="_blank" rel="noopener" style="color:inherit">tbd</a></p>
+    </footer>
+
+</body>
+</html>

@@ -110,9 +110,11 @@ class StolpersteinRepository
         $stmt = $this->pdo->prepare(
             'SELECT s.*,
                     p.vorname, p.nachname, p.geburtsdatum, p.sterbedatum,
+                    p.status  AS person_status,
                     str.name AS strasse_aktuell, v.hausnummer_aktuell,
                     st.name  AS stadtteil,
                     v.lat, v.lon,
+                    v.status  AS verlegeort_status,
                     si.aktualisiert_am AS suchindex_aktualisiert_am
              FROM stolpersteine s
              JOIN personen    p   ON p.id  = s.person_id
@@ -243,6 +245,22 @@ class StolpersteinRepository
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
         return $stmt->rowCount() > 0;
+    }
+
+    // Setzt den Status aller Stolpersteine einer Person
+    public function setStatusForPerson(int $personId, string $status): void
+    {
+        $this->pdo->prepare(
+            'UPDATE stolpersteine SET status = ? WHERE person_id = ?'
+        )->execute([$status, $personId]);
+    }
+
+    // Setzt den Status aller Stolpersteine eines Verlegeorts
+    public function setStatusForVerlegeort(int $verlegeortId, string $status): void
+    {
+        $this->pdo->prepare(
+            'UPDATE stolpersteine SET status = ? WHERE verlegeort_id = ?'
+        )->execute([$status, $verlegeortId]);
     }
 
     public function delete(int $id): bool

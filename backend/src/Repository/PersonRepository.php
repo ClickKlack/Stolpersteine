@@ -25,28 +25,37 @@ class PersonRepository
         // Kombinierte Namenssuche: Vor-, Nach- und Geburtsname (OR-Verknüpfung)
         if (!empty($filter['name'])) {
             $term     = '%' . $filter['name'] . '%';
-            $where[]  = '(vorname LIKE ? OR nachname LIKE ? OR geburtsname LIKE ?)';
+            $where[]  = '(p.vorname LIKE ? OR p.nachname LIKE ? OR p.geburtsname LIKE ?)';
             $params[] = $term;
             $params[] = $term;
             $params[] = $term;
         }
 
         if (!empty($filter['geburtsjahr'])) {
-            $where[]  = 'YEAR(geburtsdatum) = ?';
+            $where[]  = 'YEAR(p.geburtsdatum) = ?';
             $params[] = (int) $filter['geburtsjahr'];
         }
 
-        $sql = 'SELECT id, vorname, nachname, geburtsname,
-                       geburtsdatum, geburtsdatum_genauigkeit,
-                       sterbedatum, sterbedatum_genauigkeit,
-                       biografie_kurz, wikipedia_name, wikidata_id_person, erstellt_am, geaendert_am
-                FROM personen';
+        if (!empty($filter['status'])) {
+            $where[]  = 'p.status = ?';
+            $params[] = $filter['status'];
+        }
+
+        $sql = 'SELECT p.id, p.vorname, p.nachname, p.geburtsname,
+                       p.geburtsdatum, p.geburtsdatum_genauigkeit,
+                       p.sterbedatum, p.sterbedatum_genauigkeit,
+                       p.biografie_kurz, p.biografie_dokument_id,
+                       dok.titel      AS biografie_dok_titel,
+                       dok.quelle_url AS biografie_dok_url,
+                       p.wikipedia_name, p.wikidata_id_person, p.status, p.erstellt_am, p.geaendert_am
+                FROM personen p
+                LEFT JOIN dokumente dok ON dok.id = p.biografie_dokument_id';
 
         if ($where !== []) {
             $sql .= ' WHERE ' . implode(' AND ', $where);
         }
 
-        $sql .= ' ORDER BY nachname, vorname';
+        $sql .= ' ORDER BY p.nachname, p.vorname';
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
@@ -71,13 +80,17 @@ class PersonRepository
     public function findById(int $id): ?array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT id, vorname, nachname, geburtsname,
-                    geburtsdatum, geburtsdatum_genauigkeit,
-                    sterbedatum, sterbedatum_genauigkeit,
-                    biografie_kurz, wikipedia_name, wikidata_id_person,
-                    erstellt_am, erstellt_von, geaendert_am, geaendert_von
-             FROM personen
-             WHERE id = ?'
+            'SELECT p.id, p.vorname, p.nachname, p.geburtsname,
+                    p.geburtsdatum, p.geburtsdatum_genauigkeit,
+                    p.sterbedatum, p.sterbedatum_genauigkeit,
+                    p.biografie_kurz, p.biografie_dokument_id,
+                    dok.titel      AS biografie_dok_titel,
+                    dok.quelle_url AS biografie_dok_url,
+                    p.wikipedia_name, p.wikidata_id_person, p.status,
+                    p.erstellt_am, p.erstellt_von, p.geaendert_am, p.geaendert_von
+             FROM personen p
+             LEFT JOIN dokumente dok ON dok.id = p.biografie_dokument_id
+             WHERE p.id = ?'
         );
         $stmt->execute([$id]);
         $row = $stmt->fetch();
@@ -91,8 +104,9 @@ class PersonRepository
                 (vorname, nachname, geburtsname,
                  geburtsdatum, geburtsdatum_genauigkeit,
                  sterbedatum, sterbedatum_genauigkeit,
-                 biografie_kurz, wikipedia_name, wikidata_id_person, erstellt_von, geaendert_von)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                 biografie_kurz, wikipedia_name, wikidata_id_person,
+                 status, erstellt_von, geaendert_von)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
 
         $stmt->execute([
@@ -106,6 +120,7 @@ class PersonRepository
             $data['biografie_kurz']              ?? null,
             $data['wikipedia_name']              ?? null,
             $data['wikidata_id_person']          ?? null,
+            $data['status']                      ?? 'validierung',
             $benutzer,
             $benutzer,
         ]);
@@ -127,6 +142,7 @@ class PersonRepository
                 biografie_kurz              = ?,
                 wikipedia_name              = ?,
                 wikidata_id_person          = ?,
+                status                      = ?,
                 geaendert_von               = ?
              WHERE id = ?'
         );
@@ -142,11 +158,19 @@ class PersonRepository
             $data['biografie_kurz']              ?? null,
             $data['wikipedia_name']              ?? null,
             $data['wikidata_id_person']          ?? null,
+            in_array($data['status'] ?? '', ['ok', 'validierung'], true) ? $data['status'] : 'validierung',
             $benutzer,
             $id,
         ]);
 
         return $stmt->rowCount() > 0;
+    }
+
+    public function setBiografie(int $personId, int $dokId): void
+    {
+        $this->pdo->prepare(
+            'UPDATE personen SET biografie_dokument_id = ? WHERE id = ?'
+        )->execute([$dokId, $personId]);
     }
 
     public function delete(int $id): bool

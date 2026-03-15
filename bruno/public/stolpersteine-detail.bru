@@ -1,0 +1,19 @@
+meta {
+  name: Public – Stolperstein Detail
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/public/stolpersteine/{{stolpersteinId}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("Status 200", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.data).to.have.property("nachname");
+    expect(res.body.data).to.have.property("biografie_kurz");
+  });
+}

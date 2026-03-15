@@ -11,14 +11,17 @@ use Stolpersteine\Repository\PersonRepository;
 use Stolpersteine\Repository\VerlegeortRepository;
 use Stolpersteine\Repository\StolpersteinRepository;
 use Stolpersteine\Repository\AdresseRepository;
+use Stolpersteine\Repository\DokumentRepository;
 use Stolpersteine\Repository\AuditRepository;
+use Stolpersteine\Service\DokumentService;
 
 class ImportService
 {
     // Felder die aus der Excel-Datei gemappt werden können
     private const PERSON_FIELDS = [
         'nachname', 'vorname', 'geburtsname',
-        'geburtsdatum', 'sterbedatum', 'biografie_kurz', 'wikidata_id_person',
+        'geburtsdatum', 'sterbedatum', 'biografie_kurz',
+        'wikipedia_name', 'wikidata_id_person',
     ];
 
     private const VERLEGEORT_FIELDS = [
@@ -34,23 +37,32 @@ class ImportService
         'verlegedatum', 'inschrift', 'wikidata_id_stein', 'osm_id',
         'pos_x', 'pos_y', 'lat_override', 'lon_override',
         'wikimedia_commons', 'foto_lizenz_autor', 'foto_lizenz_name', 'foto_lizenz_url',
-        'status', 'zustand',
+        'zustand',
+    ];
+
+    private const DOKUMENT_FIELDS = [
+        'dokument_url',
+        'dokument_ist_biografie',
     ];
 
     private PersonRepository $personRepo;
     private VerlegeortRepository $ortRepo;
     private StolpersteinRepository $steinRepo;
     private AdresseRepository $adresseRepo;
+    private DokumentRepository $dokumentRepo;
+    private DokumentService $dokumentService;
 
     // Stadtname aus konfiguration (gecacht)
     private ?string $stadtName = null;
 
     public function __construct()
     {
-        $this->personRepo  = new PersonRepository();
-        $this->ortRepo     = new VerlegeortRepository();
-        $this->steinRepo   = new StolpersteinRepository();
-        $this->adresseRepo = new AdresseRepository();
+        $this->personRepo      = new PersonRepository();
+        $this->ortRepo         = new VerlegeortRepository();
+        $this->steinRepo       = new StolpersteinRepository();
+        $this->adresseRepo     = new AdresseRepository();
+        $this->dokumentRepo    = new DokumentRepository();
+        $this->dokumentService = new DokumentService();
     }
 
     private function stadtName(): string
@@ -135,22 +147,21 @@ class ImportService
                 'person'     => self::PERSON_FIELDS,
                 'verlegeort' => self::VERLEGEORT_FIELDS,
                 'stein'      => self::STEIN_FIELDS,
+                'dokument'   => self::DOKUMENT_FIELDS,
             ],
         ];
     }
 
     // Dry-Run: analysiert alle Zeilen ohne zu schreiben
-    public function preview(array $file, array $mapping, int $startRow = 2): array
+    public function preview(array $file, array $mapping, int $startRow = 2, string $dokIstBiografieGlobal = 'spalte'): array
     {
         $sheet = $this->loadSheet($file);
         $rows  = $this->readRows($sheet, $mapping, $startRow);
-
-        $result = $this->analyzeRows($rows);
-        return $result;
+        return $this->analyzeRows($rows, $dokIstBiografieGlobal);
     }
 
     // Tatsächlicher Import in einer Transaktion
-    public function execute(array $file, array $mapping, int $startRow, string $benutzer): array
+    public function execute(array $file, array $mapping, int $startRow, string $benutzer, string $dokIstBiografieGlobal = 'spalte'): array
     {
         $sheet = $this->loadSheet($file);
         $rows  = $this->readRows($sheet, $mapping, $startRow);
@@ -159,7 +170,7 @@ class ImportService
         $pdo->beginTransaction();
 
         try {
-            $result = $this->importRows($rows, $benutzer);
+            $result = $this->importRows($rows, $benutzer, $dokIstBiografieGlobal);
             $pdo->commit();
         } catch (\Throwable $e) {
             $pdo->rollBack();
@@ -192,7 +203,7 @@ class ImportService
         int $startRow
     ): array {
         $maxRow    = $sheet->getHighestRow();
-        $allFields = array_merge(self::PERSON_FIELDS, self::VERLEGEORT_FIELDS, self::STEIN_FIELDS);
+        $allFields = array_merge(self::PERSON_FIELDS, self::VERLEGEORT_FIELDS, self::STEIN_FIELDS, self::DOKUMENT_FIELDS);
         $rows      = [];
 
         for ($rowNum = $startRow; $rowNum <= $maxRow; $rowNum++) {
@@ -230,13 +241,14 @@ class ImportService
         return $rows;
     }
 
-    private function analyzeRows(array $rows): array
+    private function analyzeRows(array $rows, string $dokIstBiografieGlobal = 'spalte'): array
     {
         $summary = [
             'gesamt'            => count($rows),
             'neue_personen'     => 0,
             'neue_verlegeorte'  => 0,
             'neue_steine'       => 0,
+            'neue_dokumente'    => 0,
             'fehler'            => 0,
             'zeilen'            => [],
         ];
@@ -296,36 +308,55 @@ class ImportService
                 }
             }
 
+            $dokUrl = trim($data['dokument_url'] ?? '');
+            if ($dokUrl !== '') {
+                $summary['neue_dokumente']++;
+            }
+
+            // Zeige effektiven Biografie-Status in Vorschau
+            $istBiografieEffektiv = match ($dokIstBiografieGlobal) {
+                'ja'   => $dokUrl !== '',
+                'nein' => false,
+                default => $dokUrl !== '' && !empty($data['dokument_ist_biografie'])
+                    && strtolower(trim($data['dokument_ist_biografie'])) !== 'nein'
+                    && $data['dokument_ist_biografie'] !== '0',
+            };
+
             $summary['neue_steine']++;
             $summary['zeilen'][] = [
-                'zeile'          => $rowNum,
-                'status'         => 'ok',
-                'person_status'  => $personStatus,
-                'ort_status'     => $ortStatus,
-                'person'         => $this->extractFields($data, self::PERSON_FIELDS),
-                'verlegeort'     => $this->extractFields($data, self::VERLEGEORT_FIELDS),
-                'stein'          => $this->extractFields($data, self::STEIN_FIELDS),
-                'meldungen'      => [],
+                'zeile'                  => $rowNum,
+                'status'                 => 'ok',
+                'person_status'          => $personStatus,
+                'ort_status'             => $ortStatus,
+                'person'                 => $this->extractFields($data, self::PERSON_FIELDS),
+                'verlegeort'             => $this->extractFields($data, self::VERLEGEORT_FIELDS),
+                'stein'                  => $this->extractFields($data, self::STEIN_FIELDS),
+                'dokument_url'           => $dokUrl ?: null,
+                'dokument_ist_biografie' => $istBiografieEffektiv,
+                'meldungen'              => [],
             ];
         }
 
         return $summary;
     }
 
-    private function importRows(array $rows, string $benutzer): array
+    private function importRows(array $rows, string $benutzer, string $dokIstBiografieGlobal = 'spalte'): array
     {
         $summary = [
             'gesamt'            => count($rows),
             'neue_personen'     => 0,
             'neue_verlegeorte'  => 0,
             'neue_steine'       => 0,
+            'neue_dokumente'    => 0,
             'fehler'            => 0,
             'zeilen'            => [],
+            'dokumente'         => [],
         ];
 
         $suchindex       = new SuchindexService();
         $personCache     = [];
         $locationCache   = [];
+        $dokumentDetail  = [];
 
         foreach ($rows as ['zeile' => $rowNum, 'data' => $data]) {
             $fehler = $this->validateRow($data);
@@ -349,10 +380,9 @@ class ImportService
                 if ($existing) {
                     $personCache[$personKey] = $existing['id'];
                 } else {
-                    $personId = $this->personRepo->create(
-                        $this->extractFields($data, self::PERSON_FIELDS),
-                        $benutzer
-                    );
+                    $personData = $this->extractFields($data, self::PERSON_FIELDS);
+                    $personData['status'] = 'validierung';
+                    $personId = $this->personRepo->create($personData, $benutzer);
                     $personCache[$personKey] = $personId;
                     $summary['neue_personen']++;
                     AuditRepository::log($benutzer, 'INSERT', 'personen', $personId, null,
@@ -382,6 +412,7 @@ class ImportService
                         $ortDaten['wikidata_id_stadtteil']
                     );
                     $ortDaten['adress_lokation_id'] = $adressLokationId;
+                    $ortDaten['status'] = 'validierung';
 
                     $ortId = $this->ortRepo->create($ortDaten, $benutzer);
                     $locationCache[$locationKey] = $ortId;
@@ -398,14 +429,12 @@ class ImportService
                 $steinData['wikimedia_commons'] ?? null
             );
 
-            // ENUM-Werte absichern: ungültige Werte → null → Repository-Default greift
-            static $gueltigeStatus   = ['neu', 'validierung', 'freigegeben', 'archiviert',
-                                         'fehlerhaft', 'abgleich_wikipedia', 'abgleich_osm', 'abgleich_wikidata'];
+            // Status immer auf "validierung" setzen — nicht aus Importdatei lesen
+            $steinData['status'] = 'validierung';
+
+            // ENUM-Wert absichern: ungültige Zustandswerte → null → Repository-Default greift
             static $gueltigeZustaende = ['verfuegbar', 'stein_fehlend', 'kein_stein', 'beschaedigt', 'unleserlich'];
 
-            if (!in_array($steinData['status']  ?? null, $gueltigeStatus,    true)) {
-                $steinData['status']  = null;
-            }
             if (!in_array($steinData['zustand'] ?? null, $gueltigeZustaende, true)) {
                 $steinData['zustand'] = null;
             }
@@ -420,16 +449,52 @@ class ImportService
             AuditRepository::log($benutzer, 'INSERT', 'stolpersteine', $steinId, null,
                 $this->steinRepo->findById($steinId));
 
+            // Dokument-URL verknüpfen (find-or-create)
+            $dokUrl = trim($data['dokument_url'] ?? '');
+            $istBiografie = match ($dokIstBiografieGlobal) {
+                'ja'   => true,
+                'nein' => false,
+                default => !empty($data['dokument_ist_biografie'])
+                    && strtolower(trim($data['dokument_ist_biografie'])) !== 'nein'
+                    && $data['dokument_ist_biografie'] !== '0',
+            };
+            $dokId = null;
+            if ($dokUrl !== '') {
+                $isNew = ($this->dokumentRepo->findByQuelleUrl($dokUrl) === null);
+                $dokId = $this->findOrCreateDokumentUrl($dokUrl, $personId, $benutzer);
+                if ($istBiografie) {
+                    $this->personRepo->setBiografie($personId, $dokId);
+                }
+                if (!isset($dokumentDetail[$dokId])) {
+                    if ($isNew) {
+                        $summary['neue_dokumente']++;
+                    }
+                    $d = $this->dokumentRepo->findById($dokId);
+                    $dokumentDetail[$dokId] = [
+                        'id'              => $dokId,
+                        'titel'           => $d['titel'],
+                        'quelle_url'      => $d['quelle_url'],
+                        'typ'             => $d['typ'],
+                        'groesse_bytes'   => $d['groesse_bytes'] ?? null,
+                        'quelle'          => $d['quelle'] ?? null,
+                        'url_status'      => $d['url_status'] ?? null,
+                        'url_geprueft_am' => $d['url_geprueft_am'] ?? null,
+                    ];
+                }
+            }
+
             $summary['zeilen'][] = [
                 'zeile'          => $rowNum,
                 'status'         => 'importiert',
                 'person_id'      => $personId,
                 'verlegeort_id'  => $ortId,
                 'stolperstein_id'=> $steinId,
+                'dokument_id'    => $dokId,
                 'meldungen'      => [],
             ];
         }
 
+        $summary['dokumente'] = array_values($dokumentDetail);
         return $summary;
     }
 
@@ -468,5 +533,40 @@ class ImportService
         return strtolower(trim($data['strasse_aktuell'] ?? ''))
             . '|'
             . strtolower(trim($data['hausnummer_aktuell'] ?? ''));
+    }
+
+    /**
+     * Legt ein Dokument per URL an oder verknüpft die Person mit einem vorhandenen.
+     * Gibt die Dokument-ID zurück.
+     */
+    private function findOrCreateDokumentUrl(string $url, int $personId, string $benutzer): int
+    {
+        $existing = $this->dokumentRepo->findByQuelleUrl($url);
+
+        if ($existing !== null) {
+            // Idempotent: Person mit vorhandenem Dokument verknüpfen
+            $this->dokumentRepo->addPerson($existing['id'], $personId);
+            return (int) $existing['id'];
+        }
+
+        $quelle = $this->dokumentService->extractDomain($url) ?: null;
+        $dateiname     = $this->dokumentService->generateFilename($url);
+        $ext           = strtolower(pathinfo(parse_url($url, PHP_URL_PATH) ?? '', PATHINFO_EXTENSION));
+        $typ           = $ext === 'pdf' ? 'pdf' : 'url';
+
+        $dokData = [
+            'titel'        => $dateiname ?: (parse_url($url, PHP_URL_HOST) ?? $url),
+            'quelle_url'   => $url,
+            'typ'          => $typ,
+            'dateiname'    => $dateiname,
+            'quelle'=> $quelle,
+            'person_ids'   => [$personId],
+        ];
+
+        $dokId = $this->dokumentRepo->create($dokData, $benutzer);
+        AuditRepository::log($benutzer, 'INSERT', 'dokumente', $dokId, null,
+            $this->dokumentRepo->findById($dokId));
+
+        return $dokId;
     }
 }

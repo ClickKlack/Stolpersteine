@@ -29,7 +29,7 @@ class VerlegeortRepository
                        p.plz   AS plz_aktuell,
                        sta.name AS stadt,           sta.wikidata_id AS wikidata_id_ort,
                        v.grid_n, v.grid_m,
-                       v.erstellt_am, v.geaendert_am
+                       v.status, v.erstellt_am, v.geaendert_am
                 FROM verlegeorte v
                 LEFT JOIN adress_lokationen al ON al.id  = v.adress_lokation_id
                 LEFT JOIN strassen s            ON s.id  = al.strasse_id
@@ -50,6 +50,11 @@ class VerlegeortRepository
         if (!empty($filter['plz'])) {
             $where[]  = 'p.plz = ?';
             $params[] = $filter['plz'];
+        }
+
+        if (!empty($filter['status'])) {
+            $where[]  = 'v.status = ?';
+            $params[] = $filter['status'];
         }
 
         if ($where !== []) {
@@ -92,7 +97,7 @@ class VerlegeortRepository
                     p.plz   AS plz_aktuell,
                     sta.name AS stadt,           sta.wikidata_id AS wikidata_id_ort,
                     v.grid_n, v.grid_m, v.raster_beschreibung,
-                    v.erstellt_am, v.erstellt_von, v.geaendert_am, v.geaendert_von
+                    v.status, v.erstellt_am, v.erstellt_von, v.geaendert_am, v.geaendert_von
              FROM verlegeorte v
              LEFT JOIN adress_lokationen al ON al.id  = v.adress_lokation_id
              LEFT JOIN strassen s            ON s.id  = al.strasse_id
@@ -122,8 +127,8 @@ class VerlegeortRepository
                 (adress_lokation_id, hausnummer_aktuell, beschreibung, lat, lon,
                  adresse_alt, bemerkung_historisch,
                  grid_n, grid_m, raster_beschreibung,
-                 erstellt_von, geaendert_von)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                 status, erstellt_von, geaendert_von)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
 
         $stmt->execute([
@@ -137,6 +142,7 @@ class VerlegeortRepository
             isset($data['grid_n']) ? (int) $data['grid_n'] : null,
             isset($data['grid_m']) ? (int) $data['grid_m'] : null,
             $data['raster_beschreibung']  ?? null,
+            $data['status']               ?? 'validierung',
             $benutzer,
             $benutzer,
         ]);
@@ -158,6 +164,7 @@ class VerlegeortRepository
                 grid_n               = ?,
                 grid_m               = ?,
                 raster_beschreibung  = ?,
+                status               = ?,
                 geaendert_von        = ?
              WHERE id = ?'
         );
@@ -173,6 +180,7 @@ class VerlegeortRepository
             isset($data['grid_n']) ? (int) $data['grid_n'] : null,
             isset($data['grid_m']) ? (int) $data['grid_m'] : null,
             $data['raster_beschreibung']  ?? null,
+            in_array($data['status'] ?? '', ['ok', 'validierung'], true) ? $data['status'] : 'validierung',
             $benutzer,
             $id,
         ]);

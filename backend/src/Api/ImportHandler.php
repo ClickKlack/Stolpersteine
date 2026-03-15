@@ -43,11 +43,12 @@ class ImportHandler extends BaseHandler
             Response::error('Keine Datei übermittelt.', 422);
         }
 
-        $mapping  = $this->parseMapping();
-        $startRow = max(1, (int) ($_POST['startzeile'] ?? 2));
+        $mapping                = $this->parseMapping();
+        $startRow               = max(1, (int) ($_POST['startzeile'] ?? 2));
+        $dokIstBiografieGlobal  = $this->parseDokBiografieGlobal();
 
         try {
-            $result = $this->service->preview($_FILES['datei'], $mapping, $startRow);
+            $result = $this->service->preview($_FILES['datei'], $mapping, $startRow, $dokIstBiografieGlobal);
         } catch (\InvalidArgumentException $e) {
             Response::error($e->getMessage(), 422);
         }
@@ -64,11 +65,12 @@ class ImportHandler extends BaseHandler
             Response::error('Keine Datei übermittelt.', 422);
         }
 
-        $mapping  = $this->parseMapping();
-        $startRow = max(1, (int) ($_POST['startzeile'] ?? 2));
+        $mapping                = $this->parseMapping();
+        $startRow               = max(1, (int) ($_POST['startzeile'] ?? 2));
+        $dokIstBiografieGlobal  = $this->parseDokBiografieGlobal();
 
         try {
-            $result = $this->service->execute($_FILES['datei'], $mapping, $startRow, $user['benutzername']);
+            $result = $this->service->execute($_FILES['datei'], $mapping, $startRow, $user['benutzername'], $dokIstBiografieGlobal);
         } catch (\InvalidArgumentException $e) {
             Response::error($e->getMessage(), 422);
         } catch (\RuntimeException $e) {
@@ -76,6 +78,12 @@ class ImportHandler extends BaseHandler
         }
 
         Response::success($result);
+    }
+
+    private function parseDokBiografieGlobal(): string
+    {
+        $val = $_POST['dok_ist_biografie_global'] ?? 'spalte';
+        return in_array($val, ['spalte', 'ja', 'nein'], true) ? $val : 'spalte';
     }
 
     private function parseMapping(): array
