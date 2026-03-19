@@ -78,4 +78,71 @@ class ExportHandler extends BaseHandler
 
         Response::success($result);
     }
+
+    /**
+     * GET /api/export/osm/diff
+     * GET /api/export/osm/diff?stadtteil_id=N
+     * Stadtweiter Overpass-Abruf + feldweiser Vergleich mit lokalen Daten.
+     */
+    public function osmDiff(array $params): void
+    {
+        Auth::requireAdmin();
+
+        $stadtteilIdRaw = $this->queryParam('stadtteil_id');
+        $stadtteilId    = null;
+        if ($stadtteilIdRaw !== null) {
+            if (!ctype_digit((string) $stadtteilIdRaw)) {
+                Response::error('stadtteil_id muss eine Zahl sein.', 422);
+            }
+            $stadtteilId = (int) $stadtteilIdRaw;
+        }
+
+        try {
+            $result = $this->service->osmDiff($stadtteilId);
+        } catch (\InvalidArgumentException $e) {
+            Response::error($e->getMessage(), 404);
+        } catch (\RuntimeException $e) {
+            // Unterscheide Overpass-Fehler von Template-Fehler
+            $msg = $e->getMessage();
+            if (str_contains($msg, 'Overpass') || str_contains($msg, 'cURL')) {
+                Response::error($msg, 502);
+            }
+            Response::error($msg, 409);
+        }
+
+        Response::success($result);
+    }
+
+    /**
+     * GET /api/export/osm/datei
+     * GET /api/export/osm/datei?stadtteil_id=N
+     * Download einer JOSM-kompatiblen .osm XML-Datei.
+     */
+    public function osmDatei(array $params): void
+    {
+        Auth::requireAdmin();
+
+        $stadtteilIdRaw = $this->queryParam('stadtteil_id');
+        $stadtteilId    = null;
+        $dateiSuffix    = 'gesamt';
+
+        if ($stadtteilIdRaw !== null) {
+            if (!ctype_digit((string) $stadtteilIdRaw)) {
+                Response::error('stadtteil_id muss eine Zahl sein.', 422);
+            }
+            $stadtteilId = (int) $stadtteilIdRaw;
+            $dateiSuffix = 'stadtteil-' . $stadtteilId;
+        }
+
+        try {
+            $xml = $this->service->osmDatei($stadtteilId);
+        } catch (\RuntimeException $e) {
+            Response::error($e->getMessage(), 409);
+        }
+
+        header('Content-Type: application/xml; charset=utf-8');
+        header('Content-Disposition: attachment; filename="stolpersteine-' . $dateiSuffix . '.osm"');
+        echo $xml;
+        exit;
+    }
 }

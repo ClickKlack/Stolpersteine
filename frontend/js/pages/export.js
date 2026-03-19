@@ -37,6 +37,19 @@ document.addEventListener('alpine:init', () => {
         diffPaare:          null,
         diffNurAenderungen: true,
 
+        // ----- OSM -----------------------------------------------------------
+        osmTab:              'diff',       // 'diff' | 'templates'
+        osmScopes:           [],           // [{id: null, name: 'Gesamte Stadt'}, ...Stadtteile]
+        osmGewaehlterScope:  null,         // null = Gesamte Stadt, sonst {id, name}
+        osmLaden:            false,
+        osmFehler:           null,
+        osmDiffDaten:        null,
+        osmFilter:           'unterschiede', // 'alle' | 'unterschiede' | 'nur_lokal' | 'nur_osm' | 'nicht_freigegeben'
+        osmAufgeklappt:      {},
+        osmTemplates:        [],
+        osmTplLaden:         false,
+        osmTplFehler:        null,
+
         // ----- Verfügbare Platzhalter je Template-Name ----------------------
         tplPlatzhalter: {
             seite: [
@@ -102,8 +115,17 @@ document.addEventListener('alpine:init', () => {
             this.loading = true;
             this.error   = null;
             try {
-                const alle = await api.get('/adressen/alle-stadtteile');
+                const [alle, mitSteinen] = await Promise.all([
+                    api.get('/adressen/alle-stadtteile'),
+                    api.get('/adressen/alle-stadtteile?mit_freigegebenen_steinen=1'),
+                ]);
                 this.stadtteile = alle.filter(st => st.wikipedia_stolpersteine);
+                // OSM-Scopes: Gesamte Stadt + nur Stadtteile mit freigegebenen Steinen
+                this.osmScopes = [
+                    { id: null, name: 'Gesamte Stadt' },
+                    ...mitSteinen.map(st => ({ id: st.id, name: st.name })),
+                ];
+                this.osmGewaehlterScope = this.osmScopes[0];
             } catch (e) {
                 this.error = e.message || 'Stadtteile konnten nicht geladen werden.';
             } finally {
@@ -117,6 +139,9 @@ document.addEventListener('alpine:init', () => {
             this.exportFehler        = null;
             this.kopiert             = false;
             this.gewaehlterStadtteil = null;
+            if (kat === 'openstreetmap' && this.osmScopes.length === 0) {
+                this.osmGewaehlterScope = { id: null, name: 'Gesamte Stadt' };
+            }
         },
 
         async wpTabWaehlen(tab) {
@@ -238,6 +263,194 @@ document.addEventListener('alpine:init', () => {
             }
             this.diffPaare = paare;
         },
+
+        // =====================================================================
+        // OSM-Methoden
+        // =====================================================================
+
+        async osmTabWaehlen(tab) {
+            this.osmTab = tab;
+            if (tab === 'templates' && this.osmTemplates.length === 0) {
+                await this.ladeOsmTemplates();
+            }
+        },
+
+        async ladeOsmTemplates() {
+            this.osmTplLaden  = true;
+            this.osmTplFehler = null;
+            try {
+                const liste = await api.get('/templates?zielsystem=osm');
+                this.osmTemplates = liste.map(t => ({ ...t, _saving: false, _fehler: null, _ok: false }));
+            } catch (e) {
+                this.osmTplFehler = e.message || 'OSM-Templates konnten nicht geladen werden.';
+            } finally {
+                this.osmTplLaden = false;
+            }
+        },
+
+        async osmTemplateSpeichern(tpl) {
+            tpl._fehler = null;
+            tpl._ok     = false;
+
+            // JSON-Validierung für Tags-Template
+            if (tpl.name === 'tags') {
+                try {
+                    const parsed = JSON.parse(tpl.inhalt);
+                    if (typeof parsed !== 'object' || Array.isArray(parsed)) {
+                        tpl._fehler = 'Ungültiges JSON: Muss ein Objekt sein.';
+                        return;
+                    }
+                } catch (e) {
+                    tpl._fehler = 'Ungültiges JSON: ' + e.message;
+                    return;
+                }
+            }
+
+            tpl._saving = true;
+            try {
+                const updated = await api.put('/templates/' + tpl.id, { inhalt: tpl.inhalt });
+                const neueVersion = updated.id !== tpl.id;
+                tpl.id           = updated.id;
+                tpl.version      = updated.version;
+                tpl.geaendert_am = updated.geaendert_am;
+                tpl._ok = neueVersion ? '✓ Gespeichert als Version ' + updated.version : '✓ Keine Änderung – Version unverändert';
+                setTimeout(() => { tpl._ok = false; }, 3000);
+            } catch (e) {
+                tpl._fehler = e.message || 'Speichern fehlgeschlagen.';
+            } finally {
+                tpl._saving = false;
+            }
+        },
+
+        osmScopeWaehlen(scope) {
+            this.osmGewaehlterScope = scope;
+            this.osmDiffDaten = null;
+            this.osmFehler    = null;
+        },
+
+        async osmAbgleichen() {
+            this.osmLaden    = true;
+            this.osmFehler   = null;
+            this.osmDiffDaten = null;
+            this.osmAufgeklappt = {};
+            try {
+                const scopeId = this.osmGewaehlterScope?.id;
+                const url = scopeId !== null && scopeId !== undefined
+                    ? '/export/osm/diff?stadtteil_id=' + scopeId
+                    : '/export/osm/diff';
+                this.osmDiffDaten = await api.get(url);
+            } catch (e) {
+                this.osmFehler = e.message || 'OSM-Abgleich fehlgeschlagen.';
+            } finally {
+                this.osmLaden = false;
+            }
+        },
+
+        osmHerunterladen() {
+            const scopeId = this.osmGewaehlterScope?.id;
+            const url = CONFIG.apiBase + '/export/osm/datei'
+                + (scopeId !== null && scopeId !== undefined ? '?stadtteil_id=' + scopeId : '');
+            const a = document.createElement('a');
+            a.href     = url;
+            a.download = scopeId ? 'stolpersteine-stadtteil-' + scopeId + '.osm' : 'stolpersteine-gesamt.osm';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        },
+
+        osmToggleZeile(lokalId) {
+            this.osmAufgeklappt[lokalId] = !this.osmAufgeklappt[lokalId];
+        },
+
+        osmGefilterteGematchte() {
+            if (!this.osmDiffDaten) return [];
+            const alle = this.osmDiffDaten.gematchte;
+            if (this.osmFilter === 'alle' || this.osmFilter === 'unterschiede') {
+                return this.osmFilter === 'unterschiede'
+                    ? alle.filter(g => g.hat_unterschiede)
+                    : alle;
+            }
+            return alle;
+        },
+
+        async osmIdUebernehmen(lokalId, osmId) {
+            try {
+                await api.put('/stolpersteine/' + lokalId, { osm_id: osmId });
+                // Diff aktualisieren: match_typ ändern, osm_id in lokal setzen
+                if (this.osmDiffDaten) {
+                    const g = this.osmDiffDaten.gematchte.find(x => x.lokal_id === lokalId);
+                    if (g) {
+                        g.match_typ = 'osm_id';
+                        g.osm_id    = osmId;
+                    }
+                }
+            } catch (e) {
+                alert('Fehler beim Übernehmen der OSM-ID: ' + (e.message || 'Unbekannter Fehler'));
+            }
+        },
+
+        osmTagFarbe(diff) {
+            if (diff.gleich) return 'color:var(--pico-color-green-500,#2d9c55)';
+            if (diff.in_lokal && diff.in_osm) return 'color:var(--pico-color-orange-500,#d97706)';
+            if (diff.in_lokal && !diff.in_osm) return 'color:var(--pico-color-red-500,#dc2626)';
+            return 'color:var(--pico-color-blue-500,#2563eb)';
+        },
+
+        osmKoordFarbe(abstandM) {
+            if (abstandM === null) return '';
+            if (abstandM > 15) return 'color:var(--pico-color-red-500,#dc2626)';
+            if (abstandM > 5)  return 'color:var(--pico-color-orange-500,#d97706)';
+            return '';
+        },
+
+        osmPlatzhalter: {
+            abfrage: [
+                { gruppe: 'Stadt', items: [
+                    { key: '[[STADT.NAME]]', info: 'Stadtname aus der Konfiguration' },
+                ]},
+            ],
+            tags: [
+                { gruppe: 'Person', items: [
+                    { key: '[[PERSON.NAME_OSM]]',    info: 'Vorname Nachname (geb. Geburtsname) – OSM-Format' },
+                    { key: '[[PERSON.NAME_VOLL]]',   info: 'Nachname, Vorname geb. Geburtsname – Wikipedia-Format' },
+                    { key: '[[PERSON.VORNAME]]',     info: 'Vorname' },
+                    { key: '[[PERSON.NACHNAME]]',    info: 'Nachname' },
+                    { key: '[[PERSON.WIKIDATA_ID]]', info: 'Wikidata-ID der Person (für subject:wikidata)' },
+                ]},
+                { gruppe: 'Ort', items: [
+                    { key: '[[ORT.STRASSE]]',    info: 'Straßenname (für addr:street)' },
+                    { key: '[[ORT.HAUSNUMMER]]', info: 'Hausnummer (für addr:housenumber)' },
+                    { key: '[[ORT.PLZ]]',        info: 'Postleitzahl (für addr:postcode)' },
+                    { key: '[[ORT.STADTTEIL]]',  info: 'Stadtteil' },
+                    { key: '[[ORT.STADT]]',      info: 'Stadtname (für addr:city)' },
+                ]},
+                { gruppe: 'Stein', items: [
+                    { key: '[[STEIN.INSCHRIFT_ORIGINAL]]', info: 'Inschrift wie in der DB, Zeilenumbrüche als " | " (für inscription)' },
+                    { key: '[[STEIN.INSCHRIFT]]',          info: 'Inschrift in Großbuchstaben' },
+                    { key: '[[STEIN.VERLEGEDATUM_ISO]]',   info: 'Verlegedatum ISO YYYY-MM-DD (für start_date)' },
+                    { key: '[[STEIN.WIKIDATA_ID]]',        info: 'Wikidata-ID des Steins (für wikidata)' },
+                    { key: '[[STEIN.OSM_ID]]',             info: 'OSM-ID' },
+                    { key: '[[STEIN.WIKIMEDIA_COMMONS]]',  info: 'Wikimedia-Commons-Dateiname (für wikimedia_commons)' },
+                ]},
+                { gruppe: 'Dokument', items: [
+                    { key: '[[DOK.URL]]', info: 'URL des Biografie-Dokuments der Person (für website); leer = Tag wird weggelassen' },
+                ]},
+            ],
+        },
+
+        osmPlatzhalterEinfuegen(tpl, placeholder) {
+            const ta = document.getElementById('osm-tpl-textarea-' + tpl.id);
+            if (ta) {
+                ta.focus();
+                document.execCommand('insertText', false, placeholder);
+            } else {
+                tpl.inhalt += placeholder;
+            }
+        },
+
+        // =====================================================================
+        // Ende OSM-Methoden
+        // =====================================================================
 
         platzhalterEinfuegen(tpl, placeholder) {
             const ta = document.getElementById('tpl-textarea-' + tpl.id);

@@ -98,6 +98,8 @@ $router->add('GET', '/suche', 'Stolpersteine\Api\SucheHandler', 'search');
 
 // Export
 $router->add('GET', '/export/wikipedia/diff', 'Stolpersteine\Api\ExportHandler', 'diff');
+$router->add('GET', '/export/osm/diff',       'Stolpersteine\Api\ExportHandler', 'osmDiff');
+$router->add('GET', '/export/osm/datei',      'Stolpersteine\Api\ExportHandler', 'osmDatei');
 $router->add('GET', '/export/{format}',       'Stolpersteine\Api\ExportHandler', 'export');
 
 // Templates

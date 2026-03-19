@@ -158,13 +158,16 @@ class AdressenHandler extends BaseHandler
         Response::success($this->repo->findStadtteilById($id));
     }
 
-    // GET /adressen/alle-stadtteile?stadt_id=
+    // GET /adressen/alle-stadtteile?stadt_id=&mit_freigegebenen_steinen=1
     public function alleStadtteile(array $params): void
     {
         Auth::required();
         $filter = [];
         if ($this->queryParam('stadt_id')) {
             $filter['stadt_id'] = (int) $this->queryParam('stadt_id');
+        }
+        if ($this->queryParam('mit_freigegebenen_steinen') === '1') {
+            $filter['mit_freigegebenen_steinen'] = true;
         }
         Response::success($this->repo->findAllStadtteile($filter));
     }

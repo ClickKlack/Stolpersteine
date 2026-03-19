@@ -290,6 +290,13 @@ class AdresseRepository
             $params[] = (int) $filter['stadt_id'];
         }
 
+        if (!empty($filter['mit_freigegebenen_steinen'])) {
+            $where[] = '(SELECT COUNT(*) FROM stolpersteine s2
+                          JOIN verlegeorte v2 ON v2.id = s2.verlegeort_id
+                          JOIN adress_lokationen al2 ON al2.id = v2.adress_lokation_id
+                          WHERE al2.stadtteil_id = st.id AND s2.status = \'freigegeben\') > 0';
+        }
+
         $sql = 'SELECT st.id, st.name, st.wikidata_id, st.wikipedia_stadtteil, st.wikipedia_stolpersteine,
                        sta.id AS stadt_id, sta.name AS stadt_name,
                        (SELECT COUNT(*) FROM adress_lokationen WHERE stadtteil_id = st.id) AS anzahl_lokationen

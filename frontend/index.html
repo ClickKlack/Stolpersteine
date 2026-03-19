@@ -2667,8 +2667,379 @@
 
                         <!-- OpenStreetMap -->
                         <div x-show="kategorie === 'openstreetmap'">
-                            <p style="color:var(--pico-muted-color);">OpenStreetMap-Export – noch nicht implementiert.</p>
-                        </div>
+
+                            <!-- Sub-Tabs -->
+                            <div style="display:flex; gap:0.25rem; margin-bottom:1rem; flex-wrap:wrap;">
+                                <button type="button"
+                                        :class="osmTab === 'diff' ? '' : 'outline'"
+                                        style="margin:0; padding:0.25rem 0.75rem; font-size:0.875rem;"
+                                        @click="osmTabWaehlen('diff')">Abgleich</button>
+                                <button type="button"
+                                        :class="osmTab === 'templates' ? '' : 'outline'"
+                                        style="margin:0; padding:0.25rem 0.75rem; font-size:0.875rem;"
+                                        @click="osmTabWaehlen('templates')">Templates</button>
+                            </div>
+
+                            <!-- ── Abgleich-Tab ── -->
+                            <div x-show="osmTab === 'diff'">
+
+                                <!-- Kopfbereich: Scope-Auswahl + Buttons -->
+                                <div style="display:flex; align-items:flex-end; gap:0.75rem; flex-wrap:wrap; margin-bottom:1rem;">
+                                    <div style="flex:1; min-width:200px;">
+                                        <label style="font-size:0.8rem; color:var(--pico-muted-color); margin-bottom:0.25rem; display:block;">Scope</label>
+                                        <select @change="osmScopeWaehlen(osmScopes[$event.target.selectedIndex])"
+                                                style="margin:0;">
+                                            <template x-for="(scope, idx) in osmScopes" :key="idx">
+                                                <option x-text="scope.name"
+                                                        :selected="osmGewaehlterScope && osmGewaehlterScope.id === scope.id"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+                                    <button type="button"
+                                            @click="osmAbgleichen()"
+                                            :disabled="osmLaden"
+                                            :aria-busy="osmLaden"
+                                            style="margin:0; white-space:nowrap;">
+                                        <span x-text="osmLaden ? 'Lade Overpass…' : 'Mit OpenStreetMap abgleichen'"></span>
+                                    </button>
+                                    <button type="button"
+                                            class="outline"
+                                            @click="osmHerunterladen()"
+                                            style="margin:0; white-space:nowrap;"
+                                            title=".osm Datei für JOSM herunterladen">
+                                        .osm herunterladen
+                                    </button>
+                                </div>
+                                <p style="font-size:0.8rem; color:var(--pico-muted-color); margin-bottom:1rem;">
+                                    Die Overpass-Abfrage holt alle Stolpersteine der Stadt. Die Scope-Auswahl filtert nur die Anzeige.
+                                </p>
+
+                                <!-- Fehler -->
+                                <div x-show="osmFehler" x-text="osmFehler"
+                                     style="color:var(--pico-color-red-500,#dc2626); margin-bottom:1rem;"></div>
+
+                                <!-- Zusammenfassung + Diff -->
+                                <template x-if="osmDiffDaten">
+                                    <div>
+                                        <!-- Badge-Zeile -->
+                                        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem;">
+                                            <span style="background:var(--pico-background-color); border:1px solid var(--pico-muted-border-color); border-radius:4px; padding:0.2rem 0.5rem; font-size:0.8rem;">
+                                                Lokal: <strong x-text="osmDiffDaten.zusammenfassung.lokal_gesamt"></strong>
+                                            </span>
+                                            <span style="background:var(--pico-background-color); border:1px solid var(--pico-muted-border-color); border-radius:4px; padding:0.2rem 0.5rem; font-size:0.8rem;">
+                                                OSM: <strong x-text="osmDiffDaten.zusammenfassung.osm_gesamt"></strong>
+                                            </span>
+                                            <span style="background:var(--pico-background-color); border:1px solid var(--pico-muted-border-color); border-radius:4px; padding:0.2rem 0.5rem; font-size:0.8rem;">
+                                                Gematcht (ID): <strong x-text="osmDiffDaten.zusammenfassung.gematched_osm_id"></strong>
+                                            </span>
+                                            <span style="background:var(--pico-background-color); border:1px solid var(--pico-muted-border-color); border-radius:4px; padding:0.2rem 0.5rem; font-size:0.8rem;">
+                                                Gematcht (Koord.): <strong x-text="osmDiffDaten.zusammenfassung.gematched_koordinaten"></strong>
+                                            </span>
+                                            <span style="background:rgba(220,38,38,0.1); border:1px solid rgba(220,38,38,0.3); border-radius:4px; padding:0.2rem 0.5rem; font-size:0.8rem;"
+                                                  x-show="osmDiffDaten.zusammenfassung.nur_lokal > 0">
+                                                Nur lokal: <strong x-text="osmDiffDaten.zusammenfassung.nur_lokal"></strong>
+                                            </span>
+                                            <span style="background:rgba(37,99,235,0.1); border:1px solid rgba(37,99,235,0.3); border-radius:4px; padding:0.2rem 0.5rem; font-size:0.8rem; cursor:pointer;"
+                                                  x-show="osmDiffDaten.zusammenfassung.nur_osm > 0"
+                                                  @click="osmFilter = 'nur_osm'">
+                                                Nur OSM: <strong x-text="osmDiffDaten.zusammenfassung.nur_osm"></strong>
+                                            </span>
+                                            <span style="background:rgba(217,119,6,0.1); border:1px solid rgba(217,119,6,0.3); border-radius:4px; padding:0.2rem 0.5rem; font-size:0.8rem; cursor:pointer;"
+                                                  x-show="osmDiffDaten.zusammenfassung.in_osm_nicht_freigegeben > 0"
+                                                  @click="osmFilter = 'nicht_freigegeben'">
+                                                In OSM, nicht freigegeben: <strong x-text="osmDiffDaten.zusammenfassung.in_osm_nicht_freigegeben"></strong>
+                                            </span>
+                                            <span style="background:rgba(220,38,38,0.1); border:1px solid rgba(220,38,38,0.3); border-radius:4px; padding:0.2rem 0.5rem; font-size:0.8rem; cursor:pointer;"
+                                                  x-show="osmDiffDaten.zusammenfassung.mit_tag_unterschieden > 0"
+                                                  @click="osmFilter = 'unterschiede'">
+                                                Mit Tag-Unterschieden: <strong x-text="osmDiffDaten.zusammenfassung.mit_tag_unterschieden"></strong>
+                                            </span>
+                                        </div>
+
+                                        <!-- Filter-Leiste -->
+                                        <div style="display:flex; gap:0.25rem; flex-wrap:wrap; margin-bottom:1rem;">
+                                            <template x-for="f in [
+                                                {v:'unterschiede',       l:'Nur Unterschiede'},
+                                                {v:'alle',               l:'Alle'},
+                                                {v:'nur_lokal',          l:'Nur lokal'},
+                                                {v:'nur_osm',            l:'Nur OSM'},
+                                                {v:'nicht_freigegeben',  l:'Nicht freigegeben'}
+                                            ]" :key="f.v">
+                                                <button type="button"
+                                                        :class="osmFilter === f.v ? '' : 'outline secondary'"
+                                                        style="margin:0; padding:0.2rem 0.6rem; font-size:0.8rem;"
+                                                        @click="osmFilter = f.v"
+                                                        x-text="f.l"></button>
+                                            </template>
+                                        </div>
+
+                                        <!-- Gematchte Steine -->
+                                        <template x-if="osmFilter === 'alle' || osmFilter === 'unterschiede'">
+                                            <div>
+                                                <h3 style="font-size:0.95rem; margin-bottom:0.5rem;">Gematchte Steine</h3>
+                                                <div x-show="osmGefilterteGematchte().length === 0"
+                                                     style="color:var(--pico-muted-color); font-size:0.875rem; margin-bottom:1rem;">
+                                                    Keine Einträge für diesen Filter.
+                                                </div>
+                                                <template x-for="g in osmGefilterteGematchte()" :key="g.lokal_id">
+                                                    <div style="border:1px solid var(--pico-muted-border-color); border-radius:4px; margin-bottom:0.5rem; overflow:hidden;">
+                                                        <div @click="osmToggleZeile(g.lokal_id)"
+                                                             style="display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.75rem; cursor:pointer; background:var(--pico-card-background-color);">
+                                                            <span style="flex:2; font-weight:500;" x-text="g.person"></span>
+                                                            <span style="flex:2; font-size:0.875rem; color:var(--pico-muted-color);" x-text="g.adresse"></span>
+                                                            <span style="flex:0 0 auto; font-size:0.75rem; background:var(--pico-secondary-background); border-radius:3px; padding:0 0.4rem;"
+                                                                  x-text="g.match_typ === 'osm_id' ? 'ID' : 'Koord.'"></span>
+                                                            <span style="flex:0 0 auto; font-size:0.75rem;"
+                                                                  :style="osmKoordFarbe(g.koordinaten.abstand_m)"
+                                                                  x-show="g.koordinaten.abstand_m !== null"
+                                                                  x-text="g.koordinaten.abstand_m + ' m'"></span>
+                                                            <span style="flex:0 0 auto; font-size:0.75rem; color:var(--pico-color-red-500,#dc2626);"
+                                                                  x-show="g.hat_unterschiede"
+                                                                  x-text="g.tag_diffs.filter(d => !d.gleich).length + ' Unterschied(e)'"></span>
+                                                            <a :href="'https://www.openstreetmap.org/node/' + g.osm_id"
+                                                               target="_blank" rel="noopener"
+                                                               style="font-size:0.75rem; white-space:nowrap;"
+                                                               x-text="'OSM #' + g.osm_id"
+                                                               @click.stop></a>
+                                                            <span x-text="osmAufgeklappt[g.lokal_id] ? '▲' : '▼'"
+                                                                  style="color:var(--pico-muted-color);"></span>
+                                                        </div>
+                                                        <div x-show="osmAufgeklappt[g.lokal_id]" style="padding:0.75rem;">
+                                                            <div x-show="g.match_typ === 'koordinaten'" style="margin-bottom:0.75rem;">
+                                                                <button type="button" class="outline"
+                                                                        style="margin:0; padding:0.2rem 0.6rem; font-size:0.8rem;"
+                                                                        @click="osmIdUebernehmen(g.lokal_id, g.osm_id)">
+                                                                    OSM-ID <strong x-text="g.osm_id"></strong> übernehmen
+                                                                </button>
+                                                            </div>
+                                                            <div style="display:grid; grid-template-columns: 140px 1fr 1fr; gap:0.25rem; font-size:0.8rem;">
+                                                                <div style="font-weight:600; padding:0.2rem 0.4rem;">Tag</div>
+                                                                <div style="font-weight:600; padding:0.2rem 0.4rem;">Lokal</div>
+                                                                <div style="font-weight:600; padding:0.2rem 0.4rem;">OSM</div>
+                                                                <template x-for="d in g.tag_diffs" :key="d.tag">
+                                                                    <div style="display:contents;">
+                                                                        <div :style="'padding:0.2rem 0.4rem; font-family:monospace; ' + (d.tag === 'lat' || d.tag === 'lon' ? osmKoordFarbe(d.abstand_m) : osmTagFarbe(d))" x-text="d.tag"></div>
+                                                                        <div :style="'padding:0.2rem 0.4rem; word-break:break-word; ' + (!d.gleich && d.in_lokal ? 'background:rgba(0,160,100,0.08); border-radius:3px;' : '')"
+                                                                             x-text="d.lokal ?? '—'"></div>
+                                                                        <div :style="'padding:0.2rem 0.4rem; word-break:break-word; ' + (!d.gleich && d.in_osm ? 'background:rgba(210,100,0,0.08); border-radius:3px;' : '')"
+                                                                             x-text="d.osm ?? '—'"></div>
+                                                                    </div>
+                                                                </template>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+
+                                        <!-- Nur lokal -->
+                                        <template x-if="osmFilter === 'alle' || osmFilter === 'nur_lokal'">
+                                            <div x-show="osmDiffDaten.nur_lokal.length > 0" style="margin-top:1rem;">
+                                                <h3 style="font-size:0.95rem; margin-bottom:0.5rem; color:var(--pico-color-red-500,#dc2626);">
+                                                    Nur lokal – noch nicht in OSM (<span x-text="osmDiffDaten.nur_lokal.length"></span>)
+                                                </h3>
+                                                <template x-for="s in osmDiffDaten.nur_lokal" :key="s.lokal_id">
+                                                    <div style="border:1px solid var(--pico-muted-border-color); border-radius:4px; margin-bottom:0.5rem; overflow:hidden;">
+                                                        <div @click="osmToggleZeile('local-' + s.lokal_id)"
+                                                             style="display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.75rem; cursor:pointer; background:var(--pico-card-background-color);">
+                                                            <span style="flex:2; font-weight:500;" x-text="s.person"></span>
+                                                            <span style="flex:2; font-size:0.875rem; color:var(--pico-muted-color);" x-text="s.adresse"></span>
+                                                            <span style="color:var(--pico-muted-color); font-size:0.8rem;"
+                                                                  x-text="s.koordinaten.lat ? s.koordinaten.lat.toFixed(5) + ', ' + s.koordinaten.lon.toFixed(5) : 'keine Koord.'"></span>
+                                                            <span x-text="osmAufgeklappt['local-' + s.lokal_id] ? '▲' : '▼'"
+                                                                  style="color:var(--pico-muted-color);"></span>
+                                                        </div>
+                                                        <div x-show="osmAufgeklappt['local-' + s.lokal_id]" style="padding:0.75rem;">
+                                                            <div style="display:grid; grid-template-columns: 140px 1fr 1fr; gap:0.25rem; font-size:0.8rem;">
+                                                                <div style="font-weight:600; padding:0.2rem 0.4rem;">Tag</div>
+                                                                <div style="font-weight:600; padding:0.2rem 0.4rem;">Lokal</div>
+                                                                <div style="font-weight:600; padding:0.2rem 0.4rem;">OSM</div>
+                                                                <template x-for="(v, k) in s.tags" :key="k">
+                                                                    <div style="display:contents;">
+                                                                        <div style="padding:0.2rem 0.4rem; font-family:monospace; color:var(--pico-color-red-500,#dc2626);" x-text="k"></div>
+                                                                        <div style="padding:0.2rem 0.4rem; word-break:break-word;" x-text="v"></div>
+                                                                        <div style="padding:0.2rem 0.4rem; color:var(--pico-muted-color);">—</div>
+                                                                    </div>
+                                                                </template>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+
+                                        <!-- Nur OSM -->
+                                        <template x-if="osmFilter === 'alle' || osmFilter === 'nur_osm'">
+                                            <div x-show="osmDiffDaten.nur_osm.length > 0" style="margin-top:1rem;">
+                                                <h3 style="font-size:0.95rem; margin-bottom:0.5rem; color:var(--pico-color-blue-600,#2563eb);">
+                                                    Nur in OSM – nicht im System (<span x-text="osmDiffDaten.nur_osm.length"></span>)
+                                                </h3>
+                                                <template x-for="n in osmDiffDaten.nur_osm" :key="n.id">
+                                                    <div style="border:1px solid var(--pico-muted-border-color); border-radius:4px; margin-bottom:0.5rem; overflow:hidden;">
+                                                        <div @click="osmToggleZeile('osm-' + n.id)"
+                                                             style="display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.75rem; cursor:pointer; background:var(--pico-card-background-color);">
+                                                            <a :href="'https://www.openstreetmap.org/node/' + n.id"
+                                                               target="_blank" rel="noopener"
+                                                               style="font-size:0.875rem; white-space:nowrap;"
+                                                               x-text="'OSM #' + n.id"
+                                                               @click.stop></a>
+                                                            <span style="color:var(--pico-muted-color); font-size:0.875rem;"
+                                                                  x-text="n.lat.toFixed(5) + ', ' + n.lon.toFixed(5)"></span>
+                                                            <span style="flex:1; font-size:0.875rem;" x-text="n.tags.name || n.tags.inscription || ''"></span>
+                                                            <span x-text="osmAufgeklappt['osm-' + n.id] ? '▲' : '▼'"
+                                                                  style="color:var(--pico-muted-color);"></span>
+                                                        </div>
+                                                        <div x-show="osmAufgeklappt['osm-' + n.id]" style="padding:0.75rem;">
+                                                            <div style="display:grid; grid-template-columns: 140px 1fr 1fr; gap:0.25rem; font-size:0.8rem;">
+                                                                <div style="font-weight:600; padding:0.2rem 0.4rem;">Tag</div>
+                                                                <div style="font-weight:600; padding:0.2rem 0.4rem;">Lokal</div>
+                                                                <div style="font-weight:600; padding:0.2rem 0.4rem;">OSM</div>
+                                                                <template x-for="(v, k) in n.tags" :key="k">
+                                                                    <div style="display:contents;">
+                                                                        <div style="padding:0.2rem 0.4rem; font-family:monospace; color:var(--pico-color-blue-600,#2563eb);" x-text="k"></div>
+                                                                        <div style="padding:0.2rem 0.4rem; color:var(--pico-muted-color);">—</div>
+                                                                        <div style="padding:0.2rem 0.4rem; word-break:break-word;" x-text="v"></div>
+                                                                    </div>
+                                                                </template>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+
+                                        <!-- In OSM, aber nicht freigegeben -->
+                                        <template x-if="osmFilter === 'alle' || osmFilter === 'nicht_freigegeben'">
+                                            <div x-show="osmDiffDaten.in_osm_nicht_freigegeben.length > 0" style="margin-top:1rem;">
+                                                <h3 style="font-size:0.95rem; margin-bottom:0.5rem; color:var(--pico-color-orange-600,#d97706);">
+                                                    In OSM, aber nicht freigegeben (<span x-text="osmDiffDaten.in_osm_nicht_freigegeben.length"></span>)
+                                                </h3>
+                                                <template x-for="s in osmDiffDaten.in_osm_nicht_freigegeben" :key="s.lokal_id">
+                                                    <div style="border:1px solid var(--pico-muted-border-color); border-radius:4px; margin-bottom:0.5rem; overflow:hidden;">
+                                                        <div @click="osmToggleZeile('nf-' + s.lokal_id)"
+                                                             style="display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.75rem; cursor:pointer; background:var(--pico-card-background-color);">
+                                                            <span style="flex:2; font-weight:500;" x-text="s.person"></span>
+                                                            <span style="flex:2; font-size:0.875rem; color:var(--pico-muted-color);" x-text="s.adresse"></span>
+                                                            <span style="background:rgba(217,119,6,0.15); color:var(--pico-color-orange-700,#b45309); border-radius:3px; padding:0.1rem 0.4rem; font-size:0.75rem;"
+                                                                  x-text="s.status"></span>
+                                                            <span style="flex:0 0 auto; font-size:0.75rem; color:var(--pico-color-red-500,#dc2626);"
+                                                                  x-show="s.hat_unterschiede"
+                                                                  x-text="s.tag_diffs.filter(d => !d.gleich).length + ' Unterschied(e)'"></span>
+                                                            <a :href="'https://www.openstreetmap.org/node/' + s.osm_id"
+                                                               target="_blank" rel="noopener"
+                                                               style="font-size:0.75rem; white-space:nowrap;"
+                                                               x-text="'OSM #' + s.osm_id"
+                                                               @click.stop></a>
+                                                            <span x-text="osmAufgeklappt['nf-' + s.lokal_id] ? '▲' : '▼'"
+                                                                  style="color:var(--pico-muted-color);"></span>
+                                                        </div>
+                                                        <div x-show="osmAufgeklappt['nf-' + s.lokal_id]" style="padding:0.75rem;">
+                                                            <div style="display:grid; grid-template-columns: 140px 1fr 1fr; gap:0.25rem; font-size:0.8rem;">
+                                                                <div style="font-weight:600; padding:0.2rem 0.4rem;">Tag</div>
+                                                                <div style="font-weight:600; padding:0.2rem 0.4rem;">Lokal</div>
+                                                                <div style="font-weight:600; padding:0.2rem 0.4rem;">OSM</div>
+                                                                <template x-for="d in s.tag_diffs" :key="d.tag">
+                                                                    <div style="display:contents;">
+                                                                        <div :style="'padding:0.2rem 0.4rem; font-family:monospace; ' + (d.tag === 'lat' || d.tag === 'lon' ? osmKoordFarbe(d.abstand_m) : osmTagFarbe(d))" x-text="d.tag"></div>
+                                                                        <div :style="'padding:0.2rem 0.4rem; word-break:break-word; ' + (!d.gleich && d.in_lokal ? 'background:rgba(0,160,100,0.08); border-radius:3px;' : '')"
+                                                                             x-text="d.lokal ?? '—'"></div>
+                                                                        <div :style="'padding:0.2rem 0.4rem; word-break:break-word; ' + (!d.gleich && d.in_osm ? 'background:rgba(210,100,0,0.08); border-radius:3px;' : '')"
+                                                                             x-text="d.osm ?? '—'"></div>
+                                                                    </div>
+                                                                </template>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+
+                                    </div>
+                                </template>
+
+                            </div><!-- /Abgleich-Tab -->
+
+                            <!-- ── Templates-Tab ── -->
+                            <div x-show="osmTab === 'templates'">
+                                <div x-show="osmTplLaden" style="color:var(--pico-muted-color);">Lade Templates…</div>
+                                <div x-show="osmTplFehler" x-text="osmTplFehler" style="color:var(--pico-color-red-500,#dc2626);"></div>
+                                <div x-show="!osmTplLaden && !osmTplFehler && osmTemplates.length === 0"
+                                     style="color:var(--pico-muted-color); font-size:0.875rem;">
+                                    Keine OSM-Templates gefunden.
+                                </div>
+
+                                <div x-show="osmTemplates.length > 0"
+                                     style="display:grid; grid-template-columns:1fr 240px; gap:1.5rem; align-items:start;">
+                                        <!-- Editoren -->
+                                        <div>
+                                            <template x-for="tpl in osmTemplates" :key="tpl.id">
+                                                <div style="margin-bottom:1.5rem;">
+                                                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.4rem; flex-wrap:wrap; gap:0.5rem;">
+                                                        <div>
+                                                            <strong x-text="tpl.name === 'abfrage' ? 'Overpass-Abfrage (abfrage)' : 'Tag-Mapping (tags)'"></strong>
+                                                            <span style="font-size:0.75rem; color:var(--pico-muted-color); margin-left:0.5rem;"
+                                                                  x-text="'Version ' + tpl.version + (tpl.geaendert_am ? ' · geändert ' + tpl.geaendert_am.substring(0,10) : '')"></span>
+                                                        </div>
+                                                        <div style="display:flex; align-items:center; gap:0.5rem;">
+                                                            <span x-show="tpl._ok" x-text="tpl._ok"
+                                                                  style="font-size:0.8rem; color:var(--pico-color-green-600,#16a34a);"></span>
+                                                            <span x-show="tpl._fehler" x-text="tpl._fehler"
+                                                                  style="font-size:0.8rem; color:var(--pico-color-red-500,#dc2626);"></span>
+                                                            <button type="button"
+                                                                    @click="osmTemplateSpeichern(tpl)"
+                                                                    :disabled="tpl._saving"
+                                                                    :aria-busy="tpl._saving"
+                                                                    style="margin:0; padding:0.2rem 0.75rem; font-size:0.875rem;">
+                                                                Speichern
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <p x-show="tpl.name === 'abfrage'" style="font-size:0.78rem; color:var(--pico-muted-color); margin-bottom:0.4rem;">
+                                                        Overpass QL – wird stadtweit für den Abgleich verwendet. Platzhalter: <code>[[STADT.NAME]]</code>
+                                                    </p>
+                                                    <p x-show="tpl.name === 'tags'" style="font-size:0.78rem; color:var(--pico-muted-color); margin-bottom:0.4rem;">
+                                                        JSON-Objekt: OSM-Tag → Platzhalter oder Literalwert. Leere Werte werden weggelassen.
+                                                    </p>
+                                                    <textarea :id="'osm-tpl-textarea-' + tpl.id"
+                                                              x-model="tpl.inhalt"
+                                                              rows="12"
+                                                              style="font-family:monospace; font-size:0.8rem; width:100%; margin:0; resize:vertical;"
+                                                              spellcheck="false"></textarea>
+                                                </div>
+                                            </template>
+                                        </div>
+
+                                        <!-- Platzhalter-Sidebar -->
+                                        <div style="position:sticky; top:1rem;">
+                                            <strong style="font-size:0.875rem; display:block; margin-bottom:0.5rem;">Platzhalter einfügen</strong>
+                                            <p style="font-size:0.75rem; color:var(--pico-muted-color);">
+                                                Wähle zuerst das Textfeld, dann klicke auf einen Platzhalter.
+                                            </p>
+                                            <template x-for="tpl in osmTemplates" :key="'sidebar-' + tpl.id">
+                                                <div style="margin-bottom:1rem;">
+                                                    <div style="font-size:0.75rem; font-weight:600; color:var(--pico-muted-color); margin-bottom:0.25rem;"
+                                                         x-text="tpl.name === 'abfrage' ? 'Abfrage-Template' : 'Tag-Template'"></div>
+                                                    <template x-for="gruppe in (osmPlatzhalter[tpl.name] || [])" :key="gruppe.gruppe">
+                                                        <div style="margin-bottom:0.5rem;">
+                                                            <div style="font-size:0.7rem; color:var(--pico-muted-color); margin-bottom:0.15rem;" x-text="gruppe.gruppe"></div>
+                                                            <template x-for="item in gruppe.items" :key="item.key">
+                                                                <button type="button"
+                                                                        class="outline secondary"
+                                                                        style="margin:0 0.15rem 0.15rem 0; padding:0.1rem 0.35rem; font-size:0.7rem; font-family:monospace; white-space:nowrap;"
+                                                                        :title="item.info"
+                                                                        @click="osmPlatzhalterEinfuegen(tpl, item.key)"
+                                                                        x-text="item.key"></button>
+                                                            </template>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </div><!-- /osmTemplates.length > 0 -->
+                            </div><!-- /Templates-Tab -->
+
+                        </div><!-- /openstreetmap -->
 
                         <!-- Wikidata -->
                         <div x-show="kategorie === 'wikidata'">
