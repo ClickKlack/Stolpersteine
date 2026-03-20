@@ -1,53 +1,14 @@
-#!/usr/bin/env bash
-# =============================================================================
-# seed_plz_magdeburg.sh – Magdeburger Stammdaten einspielen
-#
-# Spielt ein:
-#   - Stadt Magdeburg
-#   - 14 Postleitzahlen (39104–39130)
-#   - 40 Stadtteile mit Wikidata-IDs
-#
-# Idempotent: INSERT IGNORE überspringt bereits vorhandene Einträge.
-# Voraussetzung: UNIQUE-Constraints auf staedte, stadtteile, strassen sind gesetzt.
-# =============================================================================
+-- =============================================================================
+-- seed_magdeburg.sql – Magdeburger Stammdaten
+--
+-- Spielt ein:
+--   - Stadt Magdeburg
+--   - 14 Postleitzahlen (39104–39130)
+--   - 40 Stadtteile mit Wikidata-IDs
+--
+-- Idempotent: INSERT IGNORE überspringt bereits vorhandene Einträge.
+-- =============================================================================
 
-set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIG_PHP="${SCRIPT_DIR}/backend/config.php"
-
-if [[ ! -f "$CONFIG_PHP" ]]; then
-    echo "Fehler: $CONFIG_PHP nicht gefunden." >&2
-    exit 1
-fi
-
-DB_HOST=$(php -r "\$c = require '$CONFIG_PHP'; echo \$c['db']['host'] ?? 'localhost';")
-DB_PORT=$(php -r "\$c = require '$CONFIG_PHP'; echo \$c['db']['port'] ?? 3306;")
-DB_NAME=$(php -r "\$c = require '$CONFIG_PHP'; echo \$c['db']['name'];")
-DB_USER=$(php -r "\$c = require '$CONFIG_PHP'; echo \$c['db']['user'];")
-DB_PASS=$(php -r "\$c = require '$CONFIG_PHP'; echo \$c['db']['password'];")
-
-run_mysql() {
-    _DB_HOST="$DB_HOST" _DB_PORT="$DB_PORT" _DB_NAME="$DB_NAME" \
-    _DB_USER="$DB_USER" _DB_PASS="$DB_PASS" \
-    php -r "
-        \$pdo = new PDO(
-            'mysql:host=' . getenv('_DB_HOST') . ';port=' . getenv('_DB_PORT')
-                . ';dbname=' . getenv('_DB_NAME') . ';charset=utf8mb4',
-            getenv('_DB_USER'),
-            getenv('_DB_PASS'),
-            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-        );
-        \$sql = stream_get_contents(STDIN);
-        foreach (array_filter(array_map('trim', explode(';', \$sql))) as \$stmt) {
-            if (\$stmt !== '') \$pdo->exec(\$stmt);
-        }
-    " <<< "$1" || { echo "Fehler beim Ausführen der SQL-Anweisung." >&2; exit 1; }
-}
-
-echo "Spiele Magdeburger Stammdaten ein …"
-
-run_mysql "
 INSERT IGNORE INTO staedte (name, wikidata_id)
     VALUES ('Magdeburg', 'Q1733');
 
@@ -115,7 +76,4 @@ INSERT IGNORE INTO stadtteile (name, wikidata_id, stadt_id)
         SELECT 'Westerhüsen',                   'Q979278'                   UNION ALL
         SELECT 'Zipkeleben',                    'Q205449'
     ) v
-    JOIN staedte s ON s.name = 'Magdeburg'
-"
-
-echo "  ✓ Fertig. Stadt, 14 PLZ und 40 Stadtteile eingespielt."
+    JOIN staedte s ON s.name = 'Magdeburg';
