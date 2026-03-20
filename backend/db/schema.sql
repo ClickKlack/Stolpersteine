@@ -351,16 +351,4 @@ CREATE TABLE IF NOT EXISTS validierungen (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- ------------------------------------------------------------
--- OSM-Standard-Templates (Seed)
--- ------------------------------------------------------------
-
-INSERT IGNORE INTO templates (name, version, zielsystem, inhalt, aktiv, erstellt_am, erstellt_von, geaendert_am, geaendert_von)
-VALUES
-('abfrage', 1, 'osm',
-'[out:json][timeout:60];\narea[name="[[STADT.NAME]]"][admin_level]->.a;\nnode(area.a)["memorial"="stolperstein"];\nout meta;',
-1, NOW(), 'system', NOW(), 'system'),
-
-('tags', 1, 'osm',
-'{\n  "historic": "memorial",\n  "memorial": "stolperstein",\n  "name": "[[PERSON.NAME_OSM]]",\n  "inscription": "[[STEIN.INSCHRIFT_ORIGINAL]]",\n  "start_date": "[[STEIN.VERLEGEDATUM_ISO]]",\n  "wikidata": "[[STEIN.WIKIDATA_ID]]",\n  "wikimedia_commons": "[[STEIN.WIKIMEDIA_COMMONS]]",\n  "addr:street": "[[ORT.STRASSE]]",\n  "addr:housenumber": "[[ORT.HAUSNUMMER]]",\n  "addr:postcode": "[[ORT.PLZ]]",\n  "addr:city": "[[ORT.STADT]]",\n  "addr:suburb": "[[ORT.STADTTEIL]]",\n  "network": "Stolpersteine [[ORT.STADT]]",\n  "website": "[[DOK.URL]]",\n  "subject:wikidata": "[[PERSON.WIKIDATA_ID]]"\n}',
-1, NOW(), 'system', NOW(), 'system');
+-- Standard-Templates werden über backend/db/templates.sql eingespielt.
