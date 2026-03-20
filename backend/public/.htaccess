@@ -1,3 +1,7 @@
+php_flag log_errors on
+php_value error_log ../storage/logs/php.log
+
+
 RewriteEngine On
 
 # Statische Dateien direkt ausliefern
@@ -13,8 +17,3 @@ RewriteRule ^ index.php [L]
     Deny from all
 </FilesMatch>
 
-<IfModule mod_authz_core.c>
-    <DirectoryMatch "/(src|vendor)/">
-        Require all denied
-    </DirectoryMatch>
-</IfModule>

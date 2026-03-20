@@ -6,6 +6,7 @@ namespace Stolpersteine\Api;
 
 use Stolpersteine\Auth\Auth;
 use Stolpersteine\Config\Database;
+use Stolpersteine\Config\Logger;
 
 class AuthHandler extends BaseHandler
 {
@@ -43,6 +44,11 @@ class AuthHandler extends BaseHandler
     public function logout(array $params): void
     {
         $user = Auth::user();
+
+        if ($user) {
+            Logger::get()->info('Benutzer ausgeloggt', ['benutzername' => $user['benutzername']]);
+        }
+
         Auth::logout();
 
         if ($user) {

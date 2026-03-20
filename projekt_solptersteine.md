@@ -139,13 +139,13 @@ Stolpersteine/
 │   │   │   ├── PersonenHandler.php   # CRUD /api/personen
 │   │   │   ├── VerlegeorteHandler.php
 │   │   │   ├── StolpersteineHandler.php
-│   │   │   ├── DokumenteHandler.php
+│   │   │   ├── DokumenteHandler.php  # CRUD + URL-Check + Spiegelung + Biografie
 │   │   │   ├── AdressenHandler.php   # GET /adressen/strassen|stadtteile, POST /adressen/lokationen
 │   │   │   ├── FotoHandler.php       # Upload, Commons-Import, Löschen, Vergleich
 │   │   │   ├── KonfigurationHandler.php  # GET /konfiguration
 │   │   │   ├── SucheHandler.php
 │   │   │   ├── ImportHandler.php     # POST /api/import/analyze|preview|execute
-│   │   │   ├── ExportHandler.php     # GET /export/wikipedia, GET /export/wikipedia/diff
+│   │   │   ├── ExportHandler.php     # Wikipedia + OSM Export & Diff
 │   │   │   ├── TemplateHandler.php   # GET/PUT /templates, GET /templates/{id}
 │   │   │   └── PublicHandler.php     # GET /public/* (kein Auth, nur freigegeben)
 │   │   ├── Repository/
@@ -158,15 +158,20 @@ Stolpersteine/
 │   │   │   └── TemplateRepository.php    # Templates mit Versionierung
 │   │   ├── Service/
 │   │   │   ├── DateiService.php      # Datei-Upload, Duplikat-Check via SHA-256
-│   │   │   ├── DokumentService.php   # URL-Check, PDF-Mirroring, Metadaten
+│   │   │   ├── DokumentService.php   # URL-Check, PDF-Mirroring, Metadaten, Biografie-Zuweisung
 │   │   │   ├── ImportService.php     # Excel/CSV-Import, Dry-Run, Duplikat-Erkennung
 │   │   │   ├── SuchindexService.php  # Suchindex aufbauen/aktualisieren
-│   │   │   └── ExportService.php     # Wikitext-Generierung, MediaWiki-API-Diff
+│   │   │   └── ExportService.php     # Wikitext + OSM-Export, MediaWiki-API-Diff
 │   │   ├── Auth/
 │   │   │   └── Auth.php     # Session, Login, Rollen-Guards
 │   │   └── Config/
 │   │       ├── Config.php   # Konfigurationslader
+│   │       ├── Logger.php   # Monolog-Singleton (log_dir aus Config, rotierende Logs)
 │   │       └── Database.php # PDO-Singleton, setzt UTC + utf8mb4
+│   ├── storage/             # Persistenter Dateispeicher (nicht web-zugänglich)
+│   │   ├── .htaccess        # Zugriff verweigert (Apache 2.2 kompatibel)
+│   │   ├── logs/            # App-Logs (app-*.log) + PHP-Fehlerlog – nicht im Git
+│   │   └── spiegel/         # Gespiegelte externe PDFs – nicht im Git
 │   ├── db/
 │   │   ├── schema.sql       # Vollständiges DB-Schema v1.0
 │   │   └── migrations/      # Schema-Änderungen
@@ -188,8 +193,8 @@ Stolpersteine/
 │           ├── verlegeorte.js   # Verlegeorte-CRUD + Adress-Lookup + Karte + Grid-Konfig
 │           ├── stolpersteine.js # Stolpersteine-CRUD + Grid-Picker + Foto + Karte
 │           ├── adressen.js      # Adress-CRUD (Städte, Stadtteile, Straßen, PLZ, Lokationen)
-│           ├── dokumente.js     # Dokument-Verwaltung
-│           └── export.js        # Export-Seite: Wikipedia, Templates, Diff-Ansicht
+│           ├── dokumente.js     # Dokument-Verwaltung (Upload, URL, Spiegelung, Biografie)
+│           └── export.js        # Export-Seite: Wikipedia + OSM, Templates, Diff-Ansicht
 │
 ├── website/                 # Öffentliche Website – Alpine.js + Leaflet (kein Build-Schritt)
 │   ├── index.html           # SPA: Karte / Personenliste / Detailansicht
@@ -228,6 +233,18 @@ Stolpersteine/
 ├── projekt_solptersteine.md
 ├── .gitignore
 └── README.md
+```
+
+**Deployment-Struktur beim Hoster** (`stst/`):
+```
+stst/
+├── storage/          ← Persistenter Speicher (nie per rsync gelöscht)
+│   ├── logs/         ← PHP-Fehlerlog (php.log) + App-Logs (app-*.log)
+│   └── spiegel/      ← Gespiegelte PDFs
+├── api/              ← PHP-Backend (public/ + src/ + vendor/)
+│   └── config.php    ← Produktionskonfiguration (nicht deployt)
+├── verwaltung/       ← Verwaltungsoberfläche (frontend/)
+└── (root)            ← Öffentliche Website (website/)
 ```
 
 ---
@@ -371,6 +388,8 @@ Ergebnisse werden in `validierungen` gespeichert.
 - Session-basierte Auth mit `session_regenerate_id()` nach Login
 - Secure-Cookie-Flag: wird automatisch deaktiviert für `localhost` und `127.*` (inkl. Port-Erkennung)
 - Fehlerdetails nur im Debug-Modus (`app.debug = true`) nach außen
+- Logging: Monolog mit `RotatingFileHandler` (7 Tage), Log-Pfad per `app.log_dir` in config.php konfigurierbar
+- Deployment: `storage/` liegt eine Ebene über `api/` auf dem Server (`stst/storage/`), wird nie per rsync gelöscht; `vendor/` und `src/` liegen direkt unter `api/`
 
 ---
 
@@ -407,6 +426,9 @@ Ergebnisse werden in `validierungen` gespeichert.
 - `DateiService`: Upload, SHA-256-Duplikatprüfung, Verzeichnisstruktur nach Jahr/Monat
 - `DokumentRepository` + `DokumenteHandler`: CRUD `/api/dokumente`
 - Unterstützt Datei-Upload (multipart) und URL-Dokumente (JSON)
+- URL-Prüfung: `GET /dokumente/url-pruefung` (Batch-Status aller Dokument-URLs), `POST /dokumente/url-check`, `POST /dokumente/url-info`
+- PDF-Spiegelung: `POST /dokumente/{id}/spiegel` (lokal cachen), `GET /dokumente/{id}/spiegel` (Download)
+- Biografie-Zuweisung: `POST /dokumente/{id}/biografie` – verknüpft Dokument als Biografie einer Person
 
 ### ✅ Phase 3: Suche
 - `SuchindexService`: Index aufbauen, bei Personen-/Verlegeort-Updates automatisch aktualisieren
@@ -439,6 +461,12 @@ Ergebnisse werden in `validierungen` gespeichert.
 - Export-Tab: Stadtteil-Auswahl, zwei Textfelder nebeneinander (lokal ↔ live), zeilenweiser Diff mit Zeichen-Hervorhebung (jsdiff)
 - Template-Editor: Platzhalter-Sidebar zum Anklicken (mit Undo-Unterstützung via execCommand), Versionsnummer-Anzeige
 - Alle Export- und Template-Endpunkte nur für Admins zugänglich
+
+### ✅ Phase 5b: OSM-Export
+- `ExportService::osmDiff()` – vergleicht interne Daten mit OSM-Ist-Stand
+- `ExportService::osmDatei()` – erzeugt OSM-kompatible Exportdatei
+- `GET /export/osm/diff` und `GET /export/osm/datei` (nur Admin)
+- Frontend Export-Seite: OSM-Tab mit Diff-Ansicht und Download
 
 ### Phase 6: Externe Validierung (Wikidata/OSM)
 *(Vorgesehen, noch nicht implementiert)*
@@ -483,7 +511,9 @@ Implementiert:
 - ✅ Klickbare Tabellenzeilen in allen Listen (Klick = Bearbeiten, dezenter Hover-Effekt)
 - ✅ Export-Seite: Wikipedia-Export, Template-Verwaltung, Diff-Ansicht (nur Admin)
 
-Ausstehend: Dokumente, Suche, Benutzerverwaltung
+- ✅ Dokument-Verwaltung: Upload, URL-Dokumente, Spiegelung, Biografie-Zuweisung, URL-Prüfung
+
+Ausstehend: Suche, Benutzerverwaltung
 
 ### ✅ Phase 8: Öffentliche Website
 

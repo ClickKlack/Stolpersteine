@@ -7,6 +7,7 @@ namespace Stolpersteine\Auth;
 use PDO;
 use Stolpersteine\Config\Config;
 use Stolpersteine\Config\Database;
+use Stolpersteine\Config\Logger;
 use Stolpersteine\Api\Response;
 
 class Auth
@@ -83,10 +84,16 @@ class Auth
         $benutzer = $stmt->fetch();
 
         if (!$benutzer || !$benutzer['aktiv']) {
+            Logger::get()->warning('Login fehlgeschlagen (Benutzer unbekannt oder inaktiv)', [
+                'benutzername' => $benutzername,
+            ]);
             return null;
         }
 
         if (!password_verify($passwort, $benutzer['passwort_hash'])) {
+            Logger::get()->warning('Login fehlgeschlagen (falsches Passwort)', [
+                'benutzername' => $benutzername,
+            ]);
             return null;
         }
 
@@ -103,6 +110,11 @@ class Auth
 
         $_SESSION['benutzer']      = $sessionData;
         $_SESSION['eingeloggt_am'] = time();
+
+        Logger::get()->info('Benutzer eingeloggt', [
+            'benutzername' => $sessionData['benutzername'],
+            'rolle'        => $sessionData['rolle'],
+        ]);
 
         return $sessionData;
     }

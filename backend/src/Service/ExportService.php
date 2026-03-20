@@ -6,6 +6,7 @@ namespace Stolpersteine\Service;
 
 use PDO;
 use Stolpersteine\Config\Database;
+use Stolpersteine\Config\Logger;
 use Stolpersteine\Repository\TemplateRepository;
 
 class ExportService
@@ -46,9 +47,15 @@ class ExportService
         $zeilenTemplate = $this->templateRepo->findAktiv('wikipedia', 'zeile');
 
         if ($seitenTemplate === null) {
+            Logger::get()->error('Wikipedia-Export fehlgeschlagen: Seitentemplate fehlt', [
+                'stadtteil_id' => $stadtteilId,
+            ]);
             throw new \RuntimeException('Kein aktives Wikipedia-Seitentemplate gefunden (name="seite", zielsystem="wikipedia").');
         }
         if ($zeilenTemplate === null) {
+            Logger::get()->error('Wikipedia-Export fehlgeschlagen: Zeilentemplate fehlt', [
+                'stadtteil_id' => $stadtteilId,
+            ]);
             throw new \RuntimeException('Kein aktives Wikipedia-Zeilentemplate gefunden (name="zeile", zielsystem="wikipedia").');
         }
 
@@ -78,6 +85,12 @@ class ExportService
             '[[SEITE.ANZAHL_ZEILEN]]'               => (string) count($steine),
         ];
         $wikitext = strtr($seitenTemplate['inhalt'], $seitenVars);
+
+        Logger::get()->info('Wikipedia-Export erzeugt', [
+            'stadtteil_id' => $stadtteilId,
+            'stadtteil'    => $stadtteil['name'],
+            'anzahl'       => count($steine),
+        ]);
 
         return [
             'wikitext'       => $wikitext,
@@ -121,6 +134,7 @@ class ExportService
     {
         $tplTags = $this->templateRepo->findAktiv('osm', 'tags');
         if ($tplTags === null) {
+            Logger::get()->error('OSM-Export fehlgeschlagen: Tags-Template fehlt');
             throw new \RuntimeException('Kein aktives OSM-Tags-Template gefunden (name="tags", zielsystem="osm").');
         }
 
@@ -162,6 +176,12 @@ class ExportService
             ];
         }
 
+        Logger::get()->info('OSM-Export erzeugt', [
+            'stadtteil_id' => $stadtteilId,
+            'stadtteil'    => $stadtteilName,
+            'anzahl'       => count($result),
+        ]);
+
         return [
             'steine'    => $result,
             'stadtteil' => $stadtteilName,
@@ -180,10 +200,12 @@ class ExportService
     {
         $tplAbfrage = $this->templateRepo->findAktiv('osm', 'abfrage');
         if ($tplAbfrage === null) {
+            Logger::get()->error('OSM-Diff fehlgeschlagen: Abfrage-Template fehlt');
             throw new \RuntimeException('Kein aktives OSM-Abfrage-Template gefunden (name="abfrage", zielsystem="osm").');
         }
         $tplTags = $this->templateRepo->findAktiv('osm', 'tags');
         if ($tplTags === null) {
+            Logger::get()->error('OSM-Diff fehlgeschlagen: Tags-Template fehlt');
             throw new \RuntimeException('Kein aktives OSM-Tags-Template gefunden (name="tags", zielsystem="osm").');
         }
         $mapping = json_decode($tplTags['inhalt'], true);

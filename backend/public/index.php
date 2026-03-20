@@ -6,14 +6,19 @@ declare(strict_types=1);
 ini_set('display_errors', '0');
 error_reporting(E_ALL);
 
-require_once __DIR__ . '/../vendor/autoload.php';
+require_once file_exists(__DIR__ . '/vendor/autoload.php')
+    ? __DIR__ . '/vendor/autoload.php'
+    : __DIR__ . '/../vendor/autoload.php';
 
 use Stolpersteine\Config\Config;
+use Stolpersteine\Config\Logger;
 use Stolpersteine\Api\Router;
 use Stolpersteine\Api\Response;
 
 // Konfiguration laden
-Config::load(__DIR__ . '/../config.php');
+Config::load(file_exists(__DIR__ . '/config.php')
+    ? __DIR__ . '/config.php'
+    : __DIR__ . '/../config.php');
 
 // Nur JSON-Antworten
 header('Content-Type: application/json; charset=utf-8');
@@ -43,6 +48,8 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 // Führenden /api-Prefix entfernen
 $path = preg_replace('#^/api#', '', $uri) ?: '/';
+
+Logger::get()->debug('Eingehende Anfrage', ['method' => $method, 'path' => $path]);
 
 // Routing
 $router = new Router();
@@ -159,6 +166,12 @@ $router->add('GET',  '/auth/me',     'Stolpersteine\Api\AuthHandler', 'me');
 try {
     $router->dispatch($method, $path);
 } catch (\Throwable $e) {
+    Logger::get()->error('Unbehandelter Ausnahmefehler', [
+        'exception' => get_class($e),
+        'message'   => $e->getMessage(),
+        'file'      => $e->getFile(),
+        'line'      => $e->getLine(),
+    ]);
     $debug = Config::get('app')['debug'] ?? false;
     Response::error(
         'Interner Serverfehler.',

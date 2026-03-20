@@ -20,6 +20,7 @@ Die folgenden Pakete werden über [Composer](https://getcomposer.org/) installie
 | Paket | Version | Zweck |
 |---|---|---|
 | `phpoffice/phpspreadsheet` | ^5.5 | Excel/CSV-Import (`.xlsx`, `.csv`) |
+| `monolog/monolog` | ^3.0 | Strukturiertes Logging (rotierende Log-Dateien) |
 
 ---
 
@@ -32,10 +33,9 @@ composer install
 
 # 2. Konfiguration anlegen
 cp config.example.php config.php
-# config.php bearbeiten: DB-Zugangsdaten, upload_dir, debug-Flag
+# config.php bearbeiten: DB-Zugangsdaten, log_dir, upload_dir, debug-Flag
 
 # 3. Datenbank einrichten
-# schema.sql in MariaDB importieren
 mysql -u root -p stolpersteine < db/schema.sql
 
 # 4. Entwicklungsserver starten
@@ -52,7 +52,10 @@ Stolpersteine/
 ├── backend/         PHP-REST-API
 │   ├── public/      Document Root (php -S ... -t public/)
 │   ├── src/         Quellcode (PSR-4, Namespace Stolpersteine\)
-│   ├── db/          schema.sql
+│   ├── storage/     Dateispeicher (nicht web-zugänglich)
+│   │   ├── logs/    App-Logs + PHP-Fehlerlog (nicht im Git)
+│   │   └── spiegel/ Gespiegelte PDFs (nicht im Git)
+│   ├── db/          schema.sql + migrations/
 │   ├── API.md       Vollständige Endpunkt-Dokumentation
 │   └── config.php   Nicht im Git (siehe config.example.php)
 ├── frontend/        Verwaltungsoberfläche (Alpine.js + Pico CSS, kein Build-Schritt)
@@ -87,10 +90,10 @@ Vollständige Dokumentation aller Endpunkte: [backend/API.md](backend/API.md)
 | Adressen (CRUD) | `GET/POST /adressen/staedte`, `…/alle-stadtteile`, `…/alle-strassen`, `…/alle-plz`, `…/alle-lokationen` |
 | Stolpersteine | `GET/POST /stolpersteine`, `GET/PUT/DELETE /stolpersteine/{id}` |
 | Fotos | `POST /stolpersteine/{id}/foto/upload`, `POST /stolpersteine/{id}/foto/commons-import`, `DELETE /stolpersteine/{id}/foto`, `GET /stolpersteine/{id}/foto/vergleich` |
-| Dokumente | `GET/POST /dokumente`, `GET/DELETE /dokumente/{id}` |
+| Dokumente | `GET/POST /dokumente`, `GET/PUT/DELETE /dokumente/{id}`, `GET /dokumente/url-pruefung`, `POST /dokumente/url-check`, `POST /dokumente/url-info`, `GET/POST /dokumente/{id}/spiegel`, `POST /dokumente/{id}/biografie` |
 | Suche | `GET /suche` |
 | Import | `POST /import/analyze`, `POST /import/preview`, `POST /import/execute` |
-| Export | `GET /export/wikipedia`, `GET /export/wikipedia/diff` |
+| Export | `GET /export/wikipedia`, `GET /export/wikipedia/diff`, `GET /export/osm/diff`, `GET /export/osm/datei`, `GET /export/{format}` |
 | Templates | `GET /templates`, `GET/PUT /templates/{id}` |
 | Konfiguration | `GET /konfiguration` |
 
@@ -164,15 +167,30 @@ bash scripts/deploy.sh
 **Verzeichnisstruktur beim Hoster:**
 
 ```
-public_html/            ← Öffentliche Website (website/)
-public_html/verwaltung/ ← Verwaltungsoberfläche (frontend/)
-public_html/api/        ← PHP-Backend (backend/public/ + src/ + vendor/)
+stst/
+├── storage/          ← Persistenter Speicher (nie per rsync gelöscht)
+│   ├── logs/         ← PHP-Fehlerlog (php.log) + App-Logs (app-*.log)
+│   └── spiegel/      ← Gespiegelte PDFs (extern verlinkter Bestand)
+├── api/              ← PHP-Backend
+│   ├── index.php
+│   ├── .htaccess
+│   ├── src/
+│   ├── vendor/
+│   └── config.php    ← Produktionskonfiguration (nicht deployt)
+├── verwaltung/       ← Verwaltungsoberfläche (frontend/)
+└── (root)            ← Öffentliche Website (website/)
 ```
 
 **Einmalig auf dem Server anlegen** (nicht per Skript deployt):
-- `public_html/api/config.php` – Produktionskonfiguration (DB, kein Debug)
-- `public_html/api/uploads/` – Verzeichnis für Foto-Uploads
-- `public_html/api/spiegel/` – Verzeichnis für gespiegelte PDFs
+- `stst/api/config.php` – Produktionskonfiguration (DB, `log_dir`, kein Debug)
+- `stst/api/uploads/` – Verzeichnis für Foto-Uploads
+- `stst/storage/logs/` – wird automatisch per SSH-Schritt im Deploy angelegt
+
+**Wichtige config.php-Einträge für Produktion:**
+```php
+'log_dir' => '/usr/www/users/.../stst/storage/logs',
+'spiegel_dir' => '/usr/www/users/.../stst/storage/spiegel',
+```
 
 ---
 
@@ -181,10 +199,11 @@ public_html/api/        ← PHP-Backend (backend/public/ + src/ + vendor/)
 Siehe [projekt_solptersteine.md](projekt_solptersteine.md) für die vollständige Roadmap.
 
 - ✅ Phase 1 – Fundament (Auth, CRUD, Audit-Log)
-- ✅ Phase 2 – Dateien & Dokumente
+- ✅ Phase 2 – Dateien & Dokumente (inkl. externe Dokumente, URL-Prüfung, PDF-Spiegelung)
 - ✅ Phase 3 – Volltextsuche & Filter
 - ✅ Phase 4 – Excel/CSV-Import (inkl. RichText, HTML-Stripping, vollständiges Feld-Mapping)
 - ✅ Phase 5 – Wikipedia-Export & Abgleich (Templates, Wikitext-Generierung, Live-Diff, Zeichen-Hervorhebung)
+- ✅ Phase 5b – OSM-Export (Diff-Ansicht, Datei-Download)
 - ⬜ Phase 6 – Externe Validierung (Wikidata/OSM)
 - ✅ Phase 7 – Frontend (Verwaltungsoberfläche vollständig)
 - ✅ Phase 8 – Öffentliche Website (Karte, Personenliste, Detailansicht)

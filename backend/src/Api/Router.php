@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Stolpersteine\Api;
 
+use Stolpersteine\Config\Logger;
+
 class Router
 {
     private array $routes = [];
@@ -30,12 +32,20 @@ class Router
                 continue;
             }
 
+            Logger::get()->debug('Route aufgelöst', [
+                'method'  => $method,
+                'pattern' => $route['pattern'],
+                'handler' => $route['handler'] . '::' . $route['action'],
+                'params'  => $params ?: null,
+            ]);
+
             $handler = new $route['handler']();
             $action  = $route['action'];
             $handler->$action($params);
             return;
         }
 
+        Logger::get()->warning('Route nicht gefunden', ['method' => $method, 'path' => $path]);
         Response::error('Endpunkt nicht gefunden.', 404);
     }
 

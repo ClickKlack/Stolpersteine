@@ -15,7 +15,11 @@ return [
 
     'app' => [
         'debug'        => false,           // true nur lokal, nie auf Produktion!
+        // Log-Level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+        // Wird automatisch aus 'debug' abgeleitet wenn nicht gesetzt (debug=true → DEBUG, sonst WARNING).
+        // 'log_level' => 'WARNING',
         'upload_dir'   => __DIR__ . '/../uploads',
+        'log_dir'      => __DIR__ . '/../storage/logs',     // Lokal: neben config.php; Produktion: stst/storage/logs
         'spiegel_dir'  => __DIR__ . '/../storage/spiegel',  // lokale PDF-Spiegelung, nicht web-zugänglich
         'base_url'     => 'https://example.com',
         // CORS: erlaubte Frontend-Origins (nur relevant wenn debug = true)

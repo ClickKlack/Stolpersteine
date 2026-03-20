@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Stolpersteine\Service;
 
 use Stolpersteine\Config\Config;
+use Stolpersteine\Config\Logger;
 
 class DokumentService
 {
@@ -165,6 +166,8 @@ class DokumentService
             throw new \RuntimeException('Zieldatei konnte nicht geöffnet werden.');
         }
 
+        Logger::get()->info('PDF-Spiegel wird heruntergeladen', ['url' => $url, 'dok_id' => $dokId]);
+
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_FILE           => $fh,
@@ -179,11 +182,21 @@ class DokumentService
         fclose($fh);
 
         if ($curlErr !== '') {
+            Logger::get()->error('PDF-Download fehlgeschlagen (cURL-Fehler)', [
+                'url'    => $url,
+                'dok_id' => $dokId,
+                'error'  => $curlErr,
+            ]);
             @unlink($zielPfad);
             throw new \RuntimeException('Download fehlgeschlagen: ' . $curlErr);
         }
 
         if ($httpCode < 200 || $httpCode >= 300) {
+            Logger::get()->warning('PDF-Download fehlgeschlagen (HTTP-Status)', [
+                'url'       => $url,
+                'dok_id'    => $dokId,
+                'http_code' => $httpCode,
+            ]);
             @unlink($zielPfad);
             throw new \RuntimeException('Download fehlgeschlagen: HTTP ' . $httpCode);
         }
@@ -193,6 +206,12 @@ class DokumentService
             @unlink($zielPfad);
             throw new \RuntimeException('Heruntergeladene Datei ist leer.');
         }
+
+        Logger::get()->info('PDF-Spiegel erfolgreich gespeichert', [
+            'dok_id'        => $dokId,
+            'datei'         => $filename,
+            'groesse_bytes' => $groesse,
+        ]);
 
         return [
             'pfad'         => $filename,

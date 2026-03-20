@@ -13,6 +13,7 @@ use Stolpersteine\Repository\StolpersteinRepository;
 use Stolpersteine\Repository\AdresseRepository;
 use Stolpersteine\Repository\DokumentRepository;
 use Stolpersteine\Repository\AuditRepository;
+use Stolpersteine\Config\Logger;
 use Stolpersteine\Service\DokumentService;
 
 class ImportService
@@ -163,6 +164,12 @@ class ImportService
     // Tatsächlicher Import in einer Transaktion
     public function execute(array $file, array $mapping, int $startRow, string $benutzer, string $dokIstBiografieGlobal = 'spalte'): array
     {
+        Logger::get()->info('Import gestartet', [
+            'datei'    => $file['name'],
+            'benutzer' => $benutzer,
+            'startRow' => $startRow,
+        ]);
+
         $sheet = $this->loadSheet($file);
         $rows  = $this->readRows($sheet, $mapping, $startRow);
 
@@ -174,8 +181,22 @@ class ImportService
             $pdo->commit();
         } catch (\Throwable $e) {
             $pdo->rollBack();
+            Logger::get()->error('Import fehlgeschlagen, Transaktion zurückgerollt', [
+                'benutzer'  => $benutzer,
+                'exception' => get_class($e),
+                'message'   => $e->getMessage(),
+            ]);
             throw $e;
         }
+
+        Logger::get()->info('Import abgeschlossen', [
+            'benutzer'         => $benutzer,
+            'gesamt'           => $result['gesamt'],
+            'neue_personen'    => $result['neue_personen'],
+            'neue_steine'      => $result['neue_steine'],
+            'neue_verlegeorte' => $result['neue_verlegeorte'],
+            'fehler'           => $result['fehler'],
+        ]);
 
         return $result;
     }
