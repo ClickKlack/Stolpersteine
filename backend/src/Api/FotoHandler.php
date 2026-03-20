@@ -157,13 +157,7 @@ class FotoHandler extends BaseHandler
             'format'  => 'json',
         ]);
 
-        $context = stream_context_create(['http' => [
-            'timeout'       => 10,
-            'user_agent'    => 'Stolpersteine-App/1.0',
-            'ignore_errors' => true,
-        ]]);
-
-        $json = @file_get_contents($url, false, $context);
+        $json = $this->httpGet($url);
         if ($json === false) {
             Response::error('Wikimedia Commons API nicht erreichbar.', 502);
         }
@@ -195,6 +189,35 @@ class FotoHandler extends BaseHandler
     }
 
     // --- Hilfsmethoden ---
+
+    /**
+     * Führt einen HTTP-GET-Request aus (cURL, Fallback auf file_get_contents).
+     * Gibt den Body als String zurück oder false bei Fehler.
+     */
+    private function httpGet(string $url, int $timeout = 10): string|false
+    {
+        if (function_exists('curl_init')) {
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT        => $timeout,
+                CURLOPT_USERAGENT      => 'Stolpersteine-App/1.0',
+                CURLOPT_FOLLOWLOCATION => true,
+            ]);
+            $body = curl_exec($ch);
+            $err  = curl_errno($ch);
+            curl_close($ch);
+            return $err === 0 ? $body : false;
+        }
+
+        $context = stream_context_create(['http' => [
+            'timeout'       => $timeout,
+            'user_agent'    => 'Stolpersteine-App/1.0',
+            'ignore_errors' => true,
+        ]]);
+        return @file_get_contents($url, false, $context);
+    }
+
 
     private function steinOder404(int $id): array
     {
@@ -243,13 +266,7 @@ class FotoHandler extends BaseHandler
             'format'  => 'json',
         ]);
 
-        $context = stream_context_create(['http' => [
-            'timeout'        => 10,
-            'user_agent'     => 'Stolpersteine-App/1.0',
-            'ignore_errors'  => true,
-        ]]);
-
-        $json = @file_get_contents($url, false, $context);
+        $json = $this->httpGet($url);
         if ($json === false) {
             Response::error('Wikimedia Commons API nicht erreichbar.', 502);
         }
@@ -281,12 +298,7 @@ class FotoHandler extends BaseHandler
     {
         $uploadDir = Config::get('app')['upload_dir'];
 
-        $context = stream_context_create(['http' => [
-            'timeout'    => 30,
-            'user_agent' => 'Stolpersteine-App/1.0',
-        ]]);
-
-        $bildDaten = @file_get_contents($sourceUrl, false, $context);
+        $bildDaten = $this->httpGet($sourceUrl, 30);
         if ($bildDaten === false) {
             Response::error('Bild konnte nicht von Commons heruntergeladen werden.', 502);
         }
