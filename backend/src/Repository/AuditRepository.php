@@ -8,6 +8,20 @@ use Stolpersteine\Config\Database;
 
 class AuditRepository
 {
+    public static function findByBenutzer(string $benutzer, int $limit = 100): array
+    {
+        $pdo  = Database::connection();
+        $stmt = $pdo->prepare(
+            'SELECT id, aktion, tabelle, datensatz_id, altwert, neuwert, zeitpunkt
+             FROM audit_log
+             WHERE benutzer = ?
+             ORDER BY zeitpunkt DESC
+             LIMIT ?'
+        );
+        $stmt->execute([$benutzer, $limit]);
+        return $stmt->fetchAll();
+    }
+
     public static function log(
         string  $benutzer,
         string  $aktion,

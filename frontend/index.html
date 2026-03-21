@@ -29,6 +29,8 @@
 <script src="https://cdn.jsdelivr.net/npm/diff@5/dist/diff.min.js"></script>
 <script src="js/pages/export.js"></script>
 <script src="js/pages/dokumente.js"></script>
+<script src="js/pages/benutzerverwaltung.js"></script>
+<script src="js/pages/profil.js"></script>
 <script src="js/app.js"></script>
 
 <!-- =====================================================================
@@ -47,45 +49,146 @@
          LOGIN-SEITE
          ---------------------------------------------------------------- -->
     <template x-if="auth.ready && !auth.user">
-        <div class="login-wrapper" x-data="loginPage">
+        <div class="login-wrapper" x-data="loginPage" x-init="init()">
             <article class="login-card">
                 <h1>Stolpersteine</h1>
                 <p class="subtitle">Verwaltungssystem Magdeburg</p>
 
-                <form @submit.prevent="submit">
-                    <label>
-                        Benutzername
-                        <input
-                            type="text"
-                            name="benutzername"
-                            autocomplete="username"
-                            x-model="benutzername"
-                            :disabled="loading"
-                            required
-                            autofocus
-                        >
-                    </label>
+                <!-- ---- Anmelden ---------------------------------------- -->
+                <div x-show="view === 'login'">
+                    <form @submit.prevent="submit">
+                        <label>
+                            Benutzername
+                            <input
+                                type="text"
+                                name="benutzername"
+                                autocomplete="username"
+                                x-model="benutzername"
+                                :disabled="loading"
+                                required
+                                autofocus
+                            >
+                        </label>
 
-                    <label>
-                        Passwort
-                        <input
-                            type="password"
-                            name="passwort"
-                            autocomplete="current-password"
-                            x-model="passwort"
-                            :disabled="loading"
-                            required
-                        >
-                    </label>
+                        <label>
+                            Passwort
+                            <input
+                                type="password"
+                                name="passwort"
+                                autocomplete="current-password"
+                                x-model="passwort"
+                                :disabled="loading"
+                                required
+                            >
+                        </label>
 
-                    <template x-if="error">
-                        <p style="color: var(--pico-del-color);" x-text="error"></p>
-                    </template>
+                        <p x-show="error" style="color: var(--pico-del-color); margin-bottom:0.5rem;" x-text="error"></p>
 
-                    <button type="submit" :aria-busy="loading" :disabled="loading">
-                        Anmelden
-                    </button>
-                </form>
+                        <button type="submit" :aria-busy="loading" :disabled="loading">
+                            Anmelden
+                        </button>
+                    </form>
+                    <p style="text-align:center; margin-top:0.75rem; font-size:0.875rem;">
+                        <a href="#" @click.prevent="showForgot()" style="color: var(--pico-muted-color);">
+                            Passwort vergessen?
+                        </a>
+                    </p>
+                </div>
+
+                <!-- ---- Passwort vergessen -------------------------------- -->
+                <div x-show="view === 'forgotPassword'">
+                    <h2 style="font-size:1.1rem; margin-bottom:1rem;">Passwort zurücksetzen</h2>
+                    <p style="font-size:0.9rem; color:var(--pico-muted-color); margin-bottom:1rem;">
+                        Gib deinen Benutzernamen oder deine E-Mail-Adresse ein.
+                        Falls ein Konto gefunden wird, erhältst du eine E-Mail mit einem Link zum Zurücksetzen.
+                    </p>
+                    <form @submit.prevent="submitForgot()">
+                        <label>
+                            Benutzername oder E-Mail
+                            <input
+                                type="text"
+                                x-model="forgotInput"
+                                :disabled="forgotLoading"
+                                required
+                                autofocus
+                            >
+                        </label>
+                        <button type="submit" :aria-busy="forgotLoading" :disabled="forgotLoading">
+                            Zurücksetzen anfordern
+                        </button>
+                    </form>
+                    <p style="text-align:center; margin-top:0.75rem; font-size:0.875rem;">
+                        <a href="#" @click.prevent="backToLogin()" style="color: var(--pico-muted-color);">
+                            Zurück zur Anmeldung
+                        </a>
+                    </p>
+                </div>
+
+                <!-- ---- Vergessen: Bestätigung ---------------------------- -->
+                <div x-show="view === 'forgotSent'" style="text-align:center;">
+                    <p style="margin-bottom:1rem;">
+                        Falls die eingegebene Adresse in unserem System vorhanden ist,
+                        wurde eine E-Mail mit einem Reset-Link versandt.
+                        Bitte prüfe auch deinen Spam-Ordner.
+                    </p>
+                    <a href="#" @click.prevent="backToLogin()" role="button" class="outline" style="width:100%;">
+                        Zurück zur Anmeldung
+                    </a>
+                </div>
+
+                <!-- ---- Passwort neu vergeben ----------------------------- -->
+                <div x-show="view === 'resetPassword'">
+                    <h2 style="font-size:1.1rem; margin-bottom:1rem;">Neues Passwort vergeben</h2>
+                    <form @submit.prevent="submitReset()">
+                        <label>
+                            Neues Passwort
+                            <input
+                                type="password"
+                                autocomplete="new-password"
+                                x-model="neuesPasswort"
+                                :disabled="resetLoading"
+                                required
+                                autofocus
+                                minlength="8"
+                            >
+                        </label>
+                        <label>
+                            Passwort bestätigen
+                            <input
+                                type="password"
+                                autocomplete="new-password"
+                                x-model="neuesPasswort2"
+                                :disabled="resetLoading"
+                                required
+                                minlength="8"
+                            >
+                        </label>
+                        <p x-show="neuesPasswort2 && !resetPasswordsMatch"
+                           style="color: var(--pico-del-color); font-size:0.875rem; margin-bottom:0.5rem;">
+                            Die Passwörter stimmen nicht überein.
+                        </p>
+                        <p x-show="resetError"
+                           style="color: var(--pico-del-color); font-size:0.875rem; margin-bottom:0.5rem;"
+                           x-text="resetError"></p>
+                        <button type="submit"
+                                :aria-busy="resetLoading"
+                                :disabled="resetLoading || !resetPasswordsMatch || neuesPasswort.length < 8">
+                            Passwort speichern
+                        </button>
+                    </form>
+                </div>
+
+                <!-- ---- Reset erfolgreich --------------------------------- -->
+                <div x-show="view === 'resetDone'" style="text-align:center;">
+                    <p style="margin-bottom:1rem;">
+                        Dein Passwort wurde erfolgreich geändert.
+                        Du kannst dich jetzt anmelden.
+                    </p>
+                    <a href="#" @click.prevent="backToLogin()" role="button" style="width:100%;">
+                        Zur Anmeldung
+                    </a>
+                </div>
+
             </article>
         </div>
     </template>
@@ -3667,27 +3770,377 @@
                     </div>
                 </template>
 
-                <!-- Benutzerverwaltung (Platzhalter, nur Admin) -->
+                <!-- Benutzerverwaltung (nur Admin) -->
                 <template x-if="router.is('benutzerverwaltung')">
-                    <div>
-                        <div class="page-placeholder">
-                            <h2>Benutzerverwaltung</h2>
-                            <p>Diese Seite wird in der nächsten Phase implementiert.</p>
+                    <div x-data="benutzerverwaltungPage" x-init="init()">
+
+                        <!-- Kopfzeile -->
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                            <h2 style="margin:0;">Benutzerverwaltung</h2>
+                            <button @click="openCreate()">+ Neuer Benutzer</button>
                         </div>
+
+                        <!-- Filter -->
+                        <div class="filter-bar">
+                            <label class="filter-field">
+                                <span>Benutzername</span>
+                                <input x-model="filter.benutzername" @input.debounce.300ms="load()" placeholder="Suchen …">
+                            </label>
+                            <label class="filter-field">
+                                <span>Rolle</span>
+                                <select x-model="filter.rolle" @change="load()">
+                                    <option value="">Alle</option>
+                                    <option value="editor">Editor</option>
+                                    <option value="admin">Admin</option>
+                                </select>
+                            </label>
+                            <label class="filter-field">
+                                <span>Status</span>
+                                <select x-model="filter.aktiv" @change="load()">
+                                    <option value="">Alle</option>
+                                    <option value="1">Aktiv</option>
+                                    <option value="0">Inaktiv</option>
+                                </select>
+                            </label>
+                            <button type="button" class="outline" @click="resetFilter()" style="align-self:flex-end;">Zurücksetzen</button>
+                        </div>
+
+                        <!-- Ladefehler -->
+                        <p x-show="error" style="color:var(--pico-del-color);" x-text="error"></p>
+
+                        <!-- Ladeanzeige -->
+                        <div x-show="loading" class="loading-spinner">
+                            <span aria-busy="true"></span> Lade Benutzer …
+                        </div>
+
+                        <!-- Tabelle -->
+                        <template x-if="!loading && benutzer.length > 0">
+                            <figure style="overflow-x:auto;">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Benutzername</th>
+                                            <th>E-Mail</th>
+                                            <th>Rolle</th>
+                                            <th>Aktiv</th>
+                                            <th>Erstellt am</th>
+                                            <th style="width:1%;">Aktionen</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <template x-for="b in benutzer" :key="b.id">
+                                            <tr class="tr-clickable" @click="openEdit(b)">
+                                                <td x-text="b.benutzername"></td>
+                                                <td x-text="b.email || '–'"></td>
+                                                <td>
+                                                    <span
+                                                        :style="b.rolle === 'admin'
+                                                            ? 'color:var(--pico-primary); font-weight:600;'
+                                                            : ''"
+                                                        x-text="b.rolle">
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <span
+                                                        :style="b.aktiv ? 'color:var(--pico-ins-color);' : 'color:var(--pico-del-color);'"
+                                                        x-text="b.aktiv ? 'Ja' : 'Nein'">
+                                                    </span>
+                                                </td>
+                                                <td x-text="formatDate(b.erstellt_am)"></td>
+                                                <td style="white-space:nowrap; text-align:right;" @click.stop>
+                                                    <button class="btn-icon btn-outlined"
+                                                            @click.stop="openEdit(b)"
+                                                            title="Bearbeiten" aria-label="Bearbeiten">✎
+                                                    </button>
+                                                    <button class="btn-icon btn-outlined btn-delete"
+                                                            @click.stop="openDelete(b)"
+                                                            :disabled="isOwnAccount(b)"
+                                                            :title="isOwnAccount(b) ? 'Eigenen Account nicht löschbar' : 'Löschen'"
+                                                            aria-label="Löschen">✕
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </figure>
+                        </template>
+
+                        <template x-if="!loading && benutzer.length === 0 && !error">
+                            <p style="color:var(--pico-muted-color);">Keine Benutzer gefunden.</p>
+                        </template>
+
+                        <!-- ================================================
+                             MODAL: Erstellen / Bearbeiten
+                             ================================================ -->
+                        <div x-show="modalOpen" class="modal-backdrop" @click.self="modalOpen = false">
+                            <article style="max-width:600px; width:100%; max-height:90vh; overflow-y:auto;">
+                                <header style="display:flex; justify-content:space-between; align-items:center;">
+                                    <strong x-text="modalMode === 'create' ? 'Neuer Benutzer' : 'Benutzer bearbeiten'"></strong>
+                                    <button class="outline" style="padding:0.2rem 0.6rem;" @click="modalOpen = false">✕</button>
+                                </header>
+
+                                <!-- Tabs (nur im Edit-Modus) -->
+                                <div x-show="modalMode === 'edit'" style="display:flex; gap:0; border-bottom:1px solid var(--pico-muted-border-color); margin-bottom:1rem;">
+                                    <button
+                                        class="outline"
+                                        :class="activeTab === 'stammdaten' ? '' : 'secondary'"
+                                        style="border-radius:4px 4px 0 0; border-bottom:none;"
+                                        @click="activeTab = 'stammdaten'">
+                                        Stammdaten
+                                    </button>
+                                    <button
+                                        class="outline"
+                                        :class="activeTab === 'audit' ? '' : 'secondary'"
+                                        style="border-radius:4px 4px 0 0; border-bottom:none;"
+                                        @click="activeTab = 'audit'">
+                                        Audit-Log
+                                    </button>
+                                </div>
+
+                                <!-- Tab: Stammdaten -->
+                                <div x-show="activeTab === 'stammdaten'">
+                                    <form @submit.prevent="save()">
+                                        <label>
+                                            Benutzername
+                                            <input
+                                                type="text"
+                                                x-model="form.benutzername"
+                                                :disabled="saving || modalMode === 'edit'"
+                                                :readonly="modalMode === 'edit'"
+                                                required>
+                                        </label>
+
+                                        <label>
+                                            E-Mail
+                                            <input
+                                                type="email"
+                                                x-model="form.email"
+                                                required
+                                                :disabled="saving">
+                                        </label>
+
+                                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+                                            <label>
+                                                Rolle
+                                                <select x-model="form.rolle" :disabled="saving || isOwnAccount({benutzername: editBenutzername})">
+                                                    <option value="editor">Editor</option>
+                                                    <option value="admin">Admin</option>
+                                                </select>
+                                            </label>
+                                            <label style="display:flex; align-items:center; gap:0.5rem; padding-top:1.5rem;">
+                                                <input
+                                                    type="checkbox"
+                                                    x-model="form.aktiv"
+                                                    :disabled="saving || isOwnAccount({benutzername: editBenutzername})"
+                                                    style="width:auto; margin:0;">
+                                                Aktiv
+                                            </label>
+                                        </div>
+
+                                        <!-- Reset-Mail (nur im Edit-Modus) -->
+                                        <div x-show="modalMode === 'edit'" style="margin-bottom:1rem;">
+                                            <p style="margin:0 0 0.4rem; font-size:0.85rem; color:var(--pico-muted-color);">
+                                                Der Benutzer erhält eine E-Mail mit einem Link zum Setzen seines Passworts (gültig 30 Minuten).
+                                            </p>
+                                            <button
+                                                type="button"
+                                                class="outline"
+                                                :aria-busy="resetSending"
+                                                :disabled="resetSending || !form.email"
+                                                @click="sendReset()"
+                                                style="margin:0;">
+                                                Passwort-Reset-Mail senden
+                                            </button>
+                                            <p x-show="resetError" style="color:var(--pico-del-color); margin:0.3rem 0 0;" x-text="resetError"></p>
+                                            <p x-show="resetSuccess" style="color:var(--pico-ins-color); margin:0.3rem 0 0;">Mail wurde gesendet.</p>
+                                        </div>
+
+                                        <p x-show="formError" style="color:var(--pico-del-color);" x-text="formError"></p>
+
+                                        <footer style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                                            <button type="button" class="outline" @click="modalOpen = false" :disabled="saving">
+                                                Abbrechen
+                                            </button>
+                                            <button type="submit" :aria-busy="saving" :disabled="saving">
+                                                Speichern
+                                            </button>
+                                        </footer>
+                                    </form>
+                                </div>
+
+                                <!-- Tab: Audit-Log -->
+                                <div x-show="activeTab === 'audit'">
+                                    <div x-show="auditLoading" class="loading-spinner">
+                                        <span aria-busy="true"></span> Lade Audit-Log …
+                                    </div>
+                                    <template x-if="!auditLoading && auditLog.length > 0">
+                                        <figure style="overflow-x:auto; max-height:400px; overflow-y:auto;">
+                                            <table>
+                                                <thead>
+                                                    <tr>
+                                                        <th>Zeitpunkt</th>
+                                                        <th>Aktion</th>
+                                                        <th>Tabelle</th>
+                                                        <th>Datensatz-ID</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <template x-for="e in auditLog" :key="e.id">
+                                                        <tr>
+                                                            <td x-text="formatDate(e.zeitpunkt)" style="white-space:nowrap;"></td>
+                                                            <td>
+                                                                <code x-text="e.aktion" style="font-size:0.8rem;"></code>
+                                                            </td>
+                                                            <td x-text="e.tabelle || '–'"></td>
+                                                            <td x-text="e.datensatz_id || '–'"></td>
+                                                        </tr>
+                                                    </template>
+                                                </tbody>
+                                            </table>
+                                        </figure>
+                                    </template>
+                                    <template x-if="!auditLoading && auditLog.length === 0">
+                                        <p style="color:var(--pico-muted-color);">Keine Audit-Einträge für diesen Benutzer.</p>
+                                    </template>
+                                </div>
+
+                            </article>
+                        </div>
+
+                        <!-- ================================================
+                             MODAL: Löschen bestätigen
+                             ================================================ -->
+                        <div x-show="deleteConfirmOpen" class="modal-backdrop" @click.self="deleteConfirmOpen = false">
+                            <article style="max-width:420px; width:100%;">
+                                <header>
+                                    <strong>Benutzer löschen</strong>
+                                </header>
+                                <p>
+                                    Soll <strong x-text="deleteName"></strong> wirklich gelöscht werden?
+                                    Diese Aktion kann nicht rückgängig gemacht werden.
+                                </p>
+                                <p x-show="deleteError" style="color:var(--pico-del-color);" x-text="deleteError"></p>
+                                <footer style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                                    <button class="outline" @click="deleteConfirmOpen = false" :disabled="deleting">
+                                        Abbrechen
+                                    </button>
+                                    <button
+                                        @click="confirmDelete()"
+                                        :aria-busy="deleting"
+                                        :disabled="deleting"
+                                        style="background:var(--pico-del-color); border-color:var(--pico-del-color);">
+                                        Löschen
+                                    </button>
+                                </footer>
+                            </article>
+                        </div>
+
                     </div>
                 </template>
 
                 <!-- Profil -->
                 <template x-if="router.is('profil')">
-                    <div>
-                        <div class="page-placeholder">
-                            <h2>Mein Profil</h2>
-                            <p>
-                                Angemeldet als <strong x-text="auth.user.benutzername"></strong>
-                                (<span x-text="auth.user.rolle"></span>)
-                            </p>
-                            <p>Eigene Benutzerdaten und Passwort ändern – wird in der nächsten Phase implementiert.</p>
+                    <div x-data="profilPage" x-init="init()">
+
+                        <h2>Mein Profil</h2>
+
+                        <div x-show="loading" class="loading-spinner">
+                            <span aria-busy="true"></span> Lade …
                         </div>
+                        <p x-show="error" style="color:var(--pico-del-color);" x-text="error"></p>
+
+                        <template x-if="!loading && !error">
+                            <div style="max-width:560px; display:flex; flex-direction:column; gap:1.5rem;">
+
+                                <!-- Info-Karte -->
+                                <article style="margin:0; padding:1.25rem 1.5rem;">
+                                    <p style="margin:0; font-size:0.9rem; color:var(--pico-muted-color);">Angemeldet als</p>
+                                    <p style="margin:0.25rem 0 0; font-size:1.1rem; font-weight:600;" x-text="benutzername"></p>
+                                    <p style="margin:0.2rem 0 0; font-size:0.875rem; color:var(--pico-muted-color);"
+                                       x-text="rolle === 'admin' ? 'Administrator' : 'Editor'"></p>
+                                </article>
+
+                                <!-- E-Mail ändern -->
+                                <article style="margin:0; padding:1.25rem 1.5rem;">
+                                    <h3 style="margin:0 0 1rem; font-size:1rem;">E-Mail-Adresse</h3>
+                                    <form @submit.prevent="saveEmail()">
+                                        <label>
+                                            E-Mail
+                                            <input
+                                                type="email"
+                                                x-model="emailForm.email"
+                                                :disabled="emailSaving"
+                                                placeholder="name@beispiel.de"
+                                            >
+                                        </label>
+                                        <p x-show="emailError"
+                                           style="color:var(--pico-del-color); font-size:0.875rem; margin-bottom:0.5rem;"
+                                           x-text="emailError"></p>
+                                        <button type="submit" :aria-busy="emailSaving" :disabled="emailSaving">
+                                            E-Mail speichern
+                                        </button>
+                                    </form>
+                                </article>
+
+                                <!-- Passwort ändern -->
+                                <article style="margin:0; padding:1.25rem 1.5rem;">
+                                    <h3 style="margin:0 0 1rem; font-size:1rem;">Passwort ändern</h3>
+                                    <form @submit.prevent="savePassword()">
+                                        <label>
+                                            Aktuelles Passwort
+                                            <input
+                                                type="password"
+                                                autocomplete="current-password"
+                                                x-model="pwForm.aktuelles_passwort"
+                                                :disabled="pwSaving"
+                                                required
+                                            >
+                                        </label>
+                                        <label>
+                                            Neues Passwort
+                                            <input
+                                                type="password"
+                                                autocomplete="new-password"
+                                                x-model="pwForm.neues_passwort"
+                                                :disabled="pwSaving"
+                                                required
+                                                minlength="8"
+                                            >
+                                        </label>
+                                        <label>
+                                            Neues Passwort bestätigen
+                                            <input
+                                                type="password"
+                                                autocomplete="new-password"
+                                                x-model="pwForm.neues_passwort2"
+                                                :disabled="pwSaving"
+                                                required
+                                                minlength="8"
+                                            >
+                                        </label>
+                                        <p x-show="pwForm.neues_passwort && pwForm.neues_passwort.length < 8"
+                                           style="color:var(--pico-del-color); font-size:0.875rem; margin-bottom:0.5rem;">
+                                            Das Passwort muss mindestens 8 Zeichen lang sein.
+                                        </p>
+                                        <p x-show="pwForm.neues_passwort2 && !pwMatch"
+                                           style="color:var(--pico-del-color); font-size:0.875rem; margin-bottom:0.5rem;">
+                                            Die Passwörter stimmen nicht überein.
+                                        </p>
+                                        <p x-show="pwError"
+                                           style="color:var(--pico-del-color); font-size:0.875rem; margin-bottom:0.5rem;"
+                                           x-text="pwError"></p>
+                                        <button type="submit"
+                                                :aria-busy="pwSaving"
+                                                :disabled="pwSaving || !pwMatch || pwForm.neues_passwort.length < 8">
+                                            Passwort ändern
+                                        </button>
+                                    </form>
+                                </article>
+
+                            </div>
+                        </template>
+
                     </div>
                 </template>
 

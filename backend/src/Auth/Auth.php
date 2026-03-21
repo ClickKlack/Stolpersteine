@@ -9,6 +9,8 @@ use Stolpersteine\Config\Config;
 use Stolpersteine\Config\Database;
 use Stolpersteine\Config\Logger;
 use Stolpersteine\Api\Response;
+use Stolpersteine\Repository\BenutzerRepository;
+use Stolpersteine\Service\MailService;
 
 class Auth
 {
@@ -131,5 +133,76 @@ class Auth
     public static function hashPassword(string $passwort): string
     {
         return password_hash($passwort, PASSWORD_BCRYPT, ['cost' => 12]);
+    }
+
+    /**
+     * Passwort-Reset anfordern: generiert Token, speichert ihn und sendet Reset-Mail.
+     * Gibt immer true zurück (kein Unterschied ob Benutzer gefunden oder nicht).
+     */
+    public static function requestPasswordReset(string $benutzernameOderEmail): bool
+    {
+        $repo     = new BenutzerRepository();
+        $benutzer = $repo->findByBenutzernameOrEmail($benutzernameOderEmail);
+
+        if ($benutzer === null) {
+            Logger::get()->info('Passwort-Reset angefordert – Benutzer nicht gefunden (kein Detail zur Sicherheit)');
+            return true;
+        }
+
+        if (empty($benutzer['email'])) {
+            Logger::get()->info('Passwort-Reset angefordert – Benutzer hat keine E-Mail-Adresse', [
+                'benutzer_id' => $benutzer['id'],
+            ]);
+            return true;
+        }
+
+        $token     = bin2hex(random_bytes(32));
+        $ablaufSql = date('Y-m-d H:i:s', time() + 1800); // 30 Minuten
+
+        $repo->setResetToken($benutzer['id'], $token, $ablaufSql);
+
+        $baseUrl  = rtrim(Config::get('app')['base_url'] ?? '', '/');
+        $resetUrl = $baseUrl . '/#passwort-reset?token=' . $token;
+
+        try {
+            MailService::sendPasswordReset(
+                $benutzer['email'],
+                $benutzer['benutzername'],
+                $resetUrl
+            );
+        } catch (\Throwable $e) {
+            Logger::get()->error('Reset-Mail-Versand fehlgeschlagen', [
+                'benutzer_id' => $benutzer['id'],
+                'error'       => $e->getMessage(),
+            ]);
+            // Trotzdem true zurückgeben (Enumeration-Schutz)
+        }
+
+        return true;
+    }
+
+    /**
+     * Passwort via Token zurücksetzen.
+     * Gibt true bei Erfolg, false bei ungültigem/abgelaufenem Token zurück.
+     */
+    public static function resetPassword(string $token, string $neuesPasswort): bool
+    {
+        $repo     = new BenutzerRepository();
+        $benutzer = $repo->findByResetToken($token);
+
+        if ($benutzer === null) {
+            Logger::get()->warning('Passwort-Reset mit ungültigem oder abgelaufenem Token versucht');
+            return false;
+        }
+
+        $hash = self::hashPassword($neuesPasswort);
+        $repo->setPasswort($benutzer['id'], $hash);
+        $repo->clearResetToken($benutzer['id']);
+
+        Logger::get()->info('Passwort erfolgreich zurückgesetzt', [
+            'benutzer_id' => $benutzer['id'],
+        ]);
+
+        return true;
     }
 }

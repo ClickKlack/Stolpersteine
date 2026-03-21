@@ -21,6 +21,7 @@ Die folgenden Pakete werden über [Composer](https://getcomposer.org/) installie
 |---|---|---|
 | `phpoffice/phpspreadsheet` | ^5.5 | Excel/CSV-Import (`.xlsx`, `.csv`) |
 | `monolog/monolog` | ^3.0 | Strukturiertes Logging (rotierende Log-Dateien) |
+| `phpmailer/phpmailer` | ^7.0 | E-Mail-Versand via SMTP (Passwort-Reset) |
 
 ---
 
@@ -34,6 +35,7 @@ composer install
 # 2. Konfiguration anlegen
 cp config.example.php config.php
 # config.php bearbeiten: DB-Zugangsdaten, log_dir, upload_dir, debug-Flag
+# Optional: mail-Sektion für SMTP-Passwort-Reset konfigurieren
 
 # 3. Datenbank einrichten
 mysql -u root -p stolpersteine < db/schema.sql
@@ -83,7 +85,8 @@ Vollständige Dokumentation aller Endpunkte: [backend/API.md](backend/API.md)
 
 | Ressource | Endpunkte |
 |---|---|
-| Auth | `POST /auth/login`, `POST /auth/logout`, `GET /auth/me` |
+| Auth | `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`, `GET/PUT /auth/profil`, `POST /auth/passwort-vergessen`, `POST /auth/passwort-reset` |
+| Benutzer (Admin) | `GET/POST /benutzer`, `GET/PUT/DELETE /benutzer/{id}`, `POST /benutzer/{id}/passwort-reset`, `GET /benutzer/{id}/audit` |
 | Personen | `GET/POST /personen`, `GET/PUT/DELETE /personen/{id}` |
 | Verlegeorte | `GET/POST /verlegeorte`, `GET/PUT/DELETE /verlegeorte/{id}` |
 | Adressen (Lookup) | `GET /adressen/strassen`, `GET /adressen/stadtteile`, `POST /adressen/lokationen` |
@@ -149,6 +152,7 @@ bru run bruno/ --env local --recursive
 | Löschen (Personen, Orte, Steine) | ❌ | ✅ |
 | Löschen (Dokumente) | ✅ | ✅ |
 | Export & Templates | ❌ | ✅ |
+| Benutzerverwaltung | ❌ | ✅ |
 
 ---
 
@@ -207,3 +211,4 @@ Siehe [projekt_solptersteine.md](projekt_solptersteine.md) für die vollständig
 - ⬜ Phase 6 – Externe Validierung (Wikidata/OSM)
 - ✅ Phase 7 – Frontend (Verwaltungsoberfläche vollständig)
 - ✅ Phase 8 – Öffentliche Website (Karte, Personenliste, Detailansicht)
+- ✅ Phase 9 – Benutzerverwaltung & Passwort-Reset (Admin-CRUD, Audit-Log-Tab, E-Mail-Reset via SMTP)

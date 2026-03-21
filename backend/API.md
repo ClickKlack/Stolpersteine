@@ -70,6 +70,172 @@ Gibt den aktuell eingeloggten Benutzer zurück.
 
 ---
 
+### `GET /api/auth/profil`
+Gibt das eigene Benutzerprofil zurück (inkl. E-Mail).
+
+**Antwort `200`:**
+```json
+{ "success": true, "data": { "id": 1, "benutzername": "admin", "email": "admin@example.com", "rolle": "admin", "aktiv": 1 } }
+```
+
+**Fehler:** `401` – nicht eingeloggt
+
+---
+
+### `PUT /api/auth/profil`
+Aktualisiert E-Mail und/oder Passwort des eigenen Kontos.
+
+**Body (JSON):** Felder einzeln oder kombiniert:
+```json
+{ "email": "neu@example.com" }
+{ "aktuelles_passwort": "altesGeheimnis", "neues_passwort": "neuesGeheimnis!" }
+```
+
+**Fehler:**
+- `401` – nicht eingeloggt oder aktuelles Passwort falsch
+- `422` – neues Passwort < 8 Zeichen
+
+---
+
+### `POST /api/auth/passwort-vergessen`
+Initiiert den Passwort-Reset-Prozess. Sendet eine E-Mail mit einem Einmal-Link (30 Minuten gültig), wenn die Adresse bekannt ist.
+
+**Body (JSON):**
+```json
+{ "benutzername_oder_email": "admin" }
+```
+
+**Antwort `200`:** Immer gleich (Enumeration-Schutz):
+```json
+{ "success": true, "data": { "message": "Falls die Adresse bekannt ist, wurde eine E-Mail versandt." } }
+```
+
+**Fehler:**
+- `422` – Feld fehlt
+
+---
+
+### `POST /api/auth/passwort-reset`
+Setzt das Passwort anhand eines gültigen Reset-Tokens zurück. Das Token wird nach einmaliger Nutzung gelöscht.
+
+**Body (JSON):**
+```json
+{ "token": "abc123...", "neues_passwort": "neuesGeheimnis!" }
+```
+
+**Antwort `200`:**
+```json
+{ "success": true, "data": { "message": "Passwort erfolgreich geändert." } }
+```
+
+**Fehler:**
+- `400` – Token ungültig oder abgelaufen
+- `422` – Felder fehlen oder Passwort < 8 Zeichen
+
+---
+
+## Benutzer (nur Admin)
+
+Alle Endpunkte erfordern die Rolle `admin`.
+
+### `GET /api/benutzer`
+Liste aller Benutzer.
+
+**Query-Parameter:**
+| Parameter | Typ | Beschreibung |
+|---|---|---|
+| `benutzername` | string | Teilsuche (LIKE) |
+| `rolle` | string | `editor` oder `admin` |
+| `aktiv` | int | `1` (aktiv) oder `0` (inaktiv) |
+
+**Antwort `200`:** Array von Benutzer-Objekten (ohne `passwort_hash`).
+
+**Fehler:** `403` – keine Admin-Rolle
+
+---
+
+### `GET /api/benutzer/{id}`
+Einzelner Benutzer (ohne `passwort_hash`).
+
+**Fehler:** `403`, `404`
+
+---
+
+### `POST /api/benutzer`
+Neuen Benutzer anlegen. Der Admin vergibt **kein Passwort** — nach der Anlage wird automatisch eine Einladungsmail mit Reset-Link verschickt.
+
+**Body (JSON):**
+```json
+{
+  "benutzername": "neuerUser",
+  "email":        "user@example.com",
+  "rolle":        "editor",
+  "aktiv":        true
+}
+```
+
+**Antwort `201`:** Neu erstellter Benutzer.
+
+**Fehler:** `403`, `409` (Benutzername vergeben), `422` (Benutzername oder E-Mail fehlt)
+
+---
+
+### `PUT /api/benutzer/{id}`
+Benutzer aktualisieren. Eigenen Account nicht deaktivierbar.
+
+**Body (JSON):**
+```json
+{
+  "email":   "neu@example.com",
+  "rolle":   "admin",
+  "aktiv":   false
+}
+```
+
+`email` ist Pflichtfeld. Der Admin kann das Passwort des Benutzers **nicht setzen** — stattdessen Reset-Mail über `POST /api/benutzer/{id}/passwort-reset` auslösen.
+
+**Antwort `200`:** Aktualisierter Benutzer.
+
+**Fehler:** `403`, `404`, `422` (E-Mail fehlt)
+
+---
+
+### `DELETE /api/benutzer/{id}`
+Benutzer löschen. Eigenen Account nicht löschbar.
+
+**Antwort:** `204 No Content`
+
+**Fehler:** `403`, `404`
+
+---
+
+### `POST /api/benutzer/{id}/passwort-reset`
+Sendet dem Benutzer eine Passwort-Reset-Mail (30 Minuten gültig). Nur ausführbar, wenn der Benutzer eine E-Mail-Adresse hinterlegt hat.
+
+**Antwort `200`:**
+```json
+{ "success": true, "data": { "message": "Passwort-Reset-Mail wurde gesendet." } }
+```
+
+**Fehler:** `403`, `404`, `422` (keine E-Mail-Adresse hinterlegt)
+
+---
+
+### `GET /api/benutzer/{id}/audit`
+Audit-Log-Einträge für den Benutzer (max. 100, neueste zuerst).
+
+**Antwort `200`:**
+```json
+{ "success": true, "data": [
+  { "id": 1, "aktion": "LOGIN", "tabelle": null, "datensatz_id": null, "zeitpunkt": "2025-01-01 10:00:00" },
+  ...
+]}
+```
+
+**Fehler:** `403`, `404`
+
+---
+
 ## Personen
 
 ### `GET /api/personen`

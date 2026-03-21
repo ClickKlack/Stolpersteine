@@ -7,7 +7,7 @@
 
 trap 'kill 0' INT TERM
 
-php -S localhost:8080 backend/public/router.php &
+XDEBUG_MODE=debug php -S localhost:8080 backend/public/router.php &
 php -S localhost:8001 -t frontend &
 php -S localhost:8002 -t website &
 

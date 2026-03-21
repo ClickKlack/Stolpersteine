@@ -33,4 +33,15 @@ return [
         'lifetime' => 7200,               // Sekunden (2 Stunden)
     ],
 
+    // E-Mail-Versand (PHPMailer via SMTP) – für Passwort-Reset
+    'mail' => [
+        'from'        => 'noreply@example.com',      // Absender-Adresse
+        'from_name'   => 'Stolpersteine Verwaltung', // Absender-Name
+        'smtp_host'   => 'smtp.example.com',         // SMTP-Server
+        'smtp_port'   => 587,                        // 587 (STARTTLS) oder 465 (SSL)
+        'smtp_user'   => 'user@example.com',         // SMTP-Benutzername
+        'smtp_pass'   => 'geheimes_passwort',        // SMTP-Passwort
+        'smtp_secure' => 'tls',                      // 'tls' (STARTTLS) oder 'ssl' (SMTPS)
+    ],
+
 ];

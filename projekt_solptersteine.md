@@ -101,10 +101,10 @@ Volltextindex getrennt von Kerntabellen.
 - FULLTEXT-Index auf allen drei Feldern
 
 ### 2.6 Weitere Tabellen
-- `benutzer` — Login, Rollen (editor/admin)
+- `benutzer` — Login, Rollen (editor/admin); enthält Reset-Felder `passwort_reset_token` und `passwort_reset_ablauf`
 - `konfiguration` — Stadtname und externe IDs konfigurierbar
 - `templates` — Exportvorlagen mit Versionierung
-- `audit_log` — Lückenlose Protokollierung aller Änderungen
+- `audit_log` — Lückenlose Protokollierung aller Änderungen (inkl. LOGIN/LOGOUT)
 - `validierungen` — Ergebnisse der Wikidata/OSM-Checks
 
 ### 2.7 Adress-Normalisierung
@@ -135,7 +135,8 @@ Stolpersteine/
 │   │   │   ├── BaseHandler.php       # Basisklasse (jsonBody, intParam, queryParam)
 │   │   │   ├── Router.php            # URL-Matching mit {id}-Parametern
 │   │   │   ├── Response.php          # Einheitliche JSON-Antworten
-│   │   │   ├── AuthHandler.php       # POST /auth/login|logout, GET /auth/me
+│   │   │   ├── AuthHandler.php       # POST /auth/login|logout, GET /auth/me, GET/PUT /auth/profil, POST /auth/passwort-vergessen|passwort-reset
+│   │   │   ├── BenutzerHandler.php   # CRUD /api/benutzer (nur Admin) + POST /benutzer/{id}/passwort-reset + GET /benutzer/{id}/audit
 │   │   │   ├── PersonenHandler.php   # CRUD /api/personen
 │   │   │   ├── VerlegeorteHandler.php
 │   │   │   ├── StolpersteineHandler.php
@@ -149,7 +150,8 @@ Stolpersteine/
 │   │   │   ├── TemplateHandler.php   # GET/PUT /templates, GET /templates/{id}
 │   │   │   └── PublicHandler.php     # GET /public/* (kein Auth, nur freigegeben)
 │   │   ├── Repository/
-│   │   │   ├── AuditRepository.php   # Zentrales Audit-Log
+│   │   │   ├── AuditRepository.php   # Zentrales Audit-Log (log() + findByBenutzer())
+│   │   │   ├── BenutzerRepository.php # CRUD Benutzer + Reset-Token-Verwaltung
 │   │   │   ├── PersonRepository.php
 │   │   │   ├── VerlegeortRepository.php  # JOINs auf adress_lokationen
 │   │   │   ├── AdresseRepository.php     # find-or-create für Adress-Normalisierung
@@ -158,6 +160,7 @@ Stolpersteine/
 │   │   │   └── TemplateRepository.php    # Templates mit Versionierung
 │   │   ├── Service/
 │   │   │   ├── DateiService.php      # Datei-Upload, Duplikat-Check via SHA-256
+│   │   │   ├── MailService.php       # PHPMailer/SMTP-Wrapper, HTML+Text-E-Mails (Passwort-Reset)
 │   │   │   ├── DokumentService.php   # URL-Check, PDF-Mirroring, Metadaten, Biografie-Zuweisung
 │   │   │   ├── ImportService.php     # Excel/CSV-Import, Dry-Run, Duplikat-Erkennung
 │   │   │   ├── SuchindexService.php  # Suchindex aufbauen/aktualisieren
@@ -187,7 +190,8 @@ Stolpersteine/
 │       ├── api.js           # fetch-Client (get/post/put/delete/upload)
 │       ├── app.js           # Stores (auth, notify, router) + Haupt-Komponente
 │       └── pages/
-│           ├── login.js         # Login-Formular
+│           ├── login.js             # Login + Passwort-Vergessen + Passwort-Reset (Token-Link)
+│           ├── benutzerverwaltung.js # Benutzer-CRUD (Liste, Filter, Modal mit Tabs, Audit-Log)
 │           ├── dashboard.js     # Übersichts-Statistiken (klickbare Stat-Karten)
 │           ├── personen.js      # Personen-CRUD (Liste, Filter, Modal, Löschen)
 │           ├── verlegeorte.js   # Verlegeorte-CRUD + Adress-Lookup + Karte + Grid-Konfig
@@ -513,7 +517,11 @@ Implementiert:
 
 - ✅ Dokument-Verwaltung: Upload, URL-Dokumente, Spiegelung, Biografie-Zuweisung, URL-Prüfung
 
-Ausstehend: Suche, Benutzerverwaltung
+- ✅ Benutzerverwaltung (`benutzerverwaltung.js`): Liste, Filter, Modal mit Tabs (Stammdaten + Audit-Log), Reset-Mail-Button
+- ✅ Profil-Seite (`profil.js`): E-Mail und Passwort ändern
+- ✅ Login: Passwort-Vergessen-Flow + Token-basiertes Reset-Formular
+
+Ausstehend: –
 
 ### ✅ Phase 8: Öffentliche Website
 
@@ -530,7 +538,17 @@ Ausstehend: Suche, Benutzerverwaltung
 - Deployment-Skript `scripts/deploy.sh` (rsync über SSH)
 - CORS-Konfiguration für Entwicklung (`localhost:8002`)
 
-### Phase 9: Feinschliff & Erweiterungen
+### ✅ Phase 9: Benutzerverwaltung & Passwort-Reset
+- Admin-CRUD für Benutzer: Liste (Filter), Anlegen, Bearbeiten, Löschen
+- Admin vergibt kein Passwort — zufälliger unbrauchbarer Hash bei Anlage, Einladungsmail automatisch
+- `POST /benutzer/{id}/passwort-reset` — Admin löst Reset-Mail für beliebigen Benutzer aus
+- Audit-Log-Tab im Bearbeitungs-Modal (Aktionen des Benutzers)
+- E-Mail als Pflichtfeld bei Anlage und Bearbeitung
+- `MailService` (PHPMailer/SMTP): HTML+Plaintext-Mails im App-Design, lokaler Mailcatcher unterstützt
+- Token-basierter Passwort-Reset: `bin2hex(random_bytes(32))`, 30 Minuten gültig, einmalig verwendbar
+- Login-Seite: „Passwort vergessen"-Flow mit Enumeration-Schutz + Reset-Formular (Token per URL)
+- Profil-Seite: eigene E-Mail und Passwort ändern (`GET/PUT /auth/profil`)
+
+### Phase 10: Feinschliff & Erweiterungen
 - Wikidata/OSM-Validierung (Phase 6)
-- Benutzerverwaltung im Frontend
 - Optimierungen und erweiterte Filter

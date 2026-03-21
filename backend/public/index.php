@@ -158,9 +158,22 @@ $router->add('DELETE', '/adressen/alle-lokationen/{id}', 'Stolpersteine\Api\Adre
 $router->add('GET', '/konfiguration', 'Stolpersteine\Api\KonfigurationHandler', 'index');
 
 // Auth
-$router->add('POST', '/auth/login',  'Stolpersteine\Api\AuthHandler', 'login');
-$router->add('POST', '/auth/logout', 'Stolpersteine\Api\AuthHandler', 'logout');
-$router->add('GET',  '/auth/me',     'Stolpersteine\Api\AuthHandler', 'me');
+$router->add('POST', '/auth/login',              'Stolpersteine\Api\AuthHandler', 'login');
+$router->add('POST', '/auth/logout',             'Stolpersteine\Api\AuthHandler', 'logout');
+$router->add('GET',  '/auth/me',                 'Stolpersteine\Api\AuthHandler', 'me');
+$router->add('GET',  '/auth/profil',            'Stolpersteine\Api\AuthHandler', 'profil');
+$router->add('PUT',  '/auth/profil',            'Stolpersteine\Api\AuthHandler', 'profilAktualisieren');
+$router->add('POST', '/auth/passwort-vergessen', 'Stolpersteine\Api\AuthHandler', 'passwortVergessen');
+$router->add('POST', '/auth/passwort-reset',     'Stolpersteine\Api\AuthHandler', 'passwortReset');
+
+// Benutzer (nur Admin)
+$router->add('GET',    '/benutzer',             'Stolpersteine\Api\BenutzerHandler', 'index');
+$router->add('POST',   '/benutzer',                     'Stolpersteine\Api\BenutzerHandler', 'create');
+$router->add('GET',    '/benutzer/{id}/audit',          'Stolpersteine\Api\BenutzerHandler', 'audit');
+$router->add('POST',   '/benutzer/{id}/passwort-reset', 'Stolpersteine\Api\BenutzerHandler', 'passwortResetSenden');
+$router->add('GET',    '/benutzer/{id}',        'Stolpersteine\Api\BenutzerHandler', 'show');
+$router->add('PUT',    '/benutzer/{id}',        'Stolpersteine\Api\BenutzerHandler', 'update');
+$router->add('DELETE', '/benutzer/{id}',        'Stolpersteine\Api\BenutzerHandler', 'delete');
 
 // Request dispatchen
 try {

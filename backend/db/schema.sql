@@ -17,16 +17,18 @@ SET time_zone = '+00:00';
 -- ------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS benutzer (
-    id              INT             NOT NULL AUTO_INCREMENT,
-    benutzername    VARCHAR(100)    NOT NULL UNIQUE,
-    passwort_hash   VARCHAR(255)    NOT NULL,
-    email           VARCHAR(255),
-    rolle           ENUM('editor', 'admin') NOT NULL DEFAULT 'editor',
-    aktiv           TINYINT(1)      NOT NULL DEFAULT 1,
-    erstellt_am     DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    erstellt_von    VARCHAR(100)    NOT NULL DEFAULT 'system',
-    geaendert_am    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    geaendert_von   VARCHAR(100)    NOT NULL DEFAULT 'system',
+    id                      INT             NOT NULL AUTO_INCREMENT,
+    benutzername            VARCHAR(100)    NOT NULL UNIQUE,
+    passwort_hash           VARCHAR(255)    NOT NULL,
+    email                   VARCHAR(255),
+    rolle                   ENUM('editor', 'admin') NOT NULL DEFAULT 'editor',
+    aktiv                   TINYINT(1)      NOT NULL DEFAULT 1,
+    passwort_reset_token    VARCHAR(64)     NULL     COMMENT 'Einmaliger Reset-Token',
+    passwort_reset_ablauf   DATETIME        NULL     COMMENT 'Ablaufzeitpunkt des Reset-Tokens',
+    erstellt_am             DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    erstellt_von            VARCHAR(100)    NOT NULL DEFAULT 'system',
+    geaendert_am            DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    geaendert_von           VARCHAR(100)    NOT NULL DEFAULT 'system',
     PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
