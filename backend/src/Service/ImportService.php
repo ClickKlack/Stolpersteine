@@ -46,6 +46,8 @@ class ImportService
         'dokument_ist_biografie',
     ];
 
+    private const DATE_FIELDS = ['geburtsdatum', 'sterbedatum', 'verlegedatum'];
+
     private PersonRepository $personRepo;
     private VerlegeortRepository $ortRepo;
     private StolpersteinRepository $steinRepo;
@@ -246,6 +248,9 @@ class ImportService
                     $cellValue = $cellValue !== null ? trim((string) $cellValue) : null;
                     if ($cellValue !== null && in_array($field, self::HTML_STRIP_FIELDS, true)) {
                         $cellValue = trim(strip_tags($cellValue)) ?: null;
+                    }
+                    if ($cellValue !== null && in_array($field, self::DATE_FIELDS, true)) {
+                        $cellValue = $this->normalizeDate($cellValue);
                     }
                 }
                 $data[$field] = $cellValue;
@@ -547,6 +552,37 @@ class ImportService
         return strtolower(trim($data['nachname'] ?? ''))
             . '|'
             . strtolower(trim($data['vorname'] ?? ''));
+    }
+
+    /**
+     * Normalisiert ein Datum auf Y-m-d für MySQL.
+     * Unterstützt: DD.MM.YYYY, DD.MM.YY, YYYY-MM-DD, MM/DD/YYYY.
+     * Gibt den Originalwert zurück, wenn kein bekanntes Format erkannt wird.
+     */
+    private function normalizeDate(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return $value;
+        }
+
+        // Bereits Y-m-d oder Y-m-d H:i:s
+        if (preg_match('/^\d{4}-\d{2}-\d{2}/', $value)) {
+            return substr($value, 0, 10);
+        }
+
+        // DD.MM.YYYY oder DD.MM.YY
+        if (preg_match('/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})$/', $value, $m)) {
+            $year  = strlen($m[3]) === 2 ? (((int) $m[3] > 30 ? 1900 : 2000) + (int) $m[3]) : (int) $m[3];
+            return sprintf('%04d-%02d-%02d', $year, (int) $m[2], (int) $m[1]);
+        }
+
+        // MM/DD/YYYY
+        if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/', $value, $m)) {
+            return sprintf('%04d-%02d-%02d', (int) $m[3], (int) $m[1], (int) $m[2]);
+        }
+
+        return $value;
     }
 
     private function locationKey(array $data): string
