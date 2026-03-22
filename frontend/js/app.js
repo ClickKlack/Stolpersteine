@@ -117,10 +117,20 @@ document.addEventListener('alpine:init', () => {
         get config() { return Alpine.store('config'); },
 
         async init() {
+            // Passwort-Reset-Links vor Router-Initialisierung erkennen,
+            // damit der Hash nicht überschrieben wird bevor loginPage ihn liest
+            const isResetLink = /^#passwort-reset\?token=/i.test(location.hash);
+
             Alpine.store('router').init();
             await Alpine.store('auth').check();
 
-            // Nicht-eingeloggte Benutzer zur Login-Seite
+            if (isResetLink && Alpine.store('auth').user) {
+                // Aktive Session beenden, damit die Login-Sektion sichtbar wird
+                // und loginPage.init() den Reset-Token verarbeiten kann
+                try { await api.post('/auth/logout'); } catch (_) {}
+                Alpine.store('auth').user = null;
+            }
+
             if (!Alpine.store('auth').user) {
                 Alpine.store('router').go('login');
             } else {
