@@ -47,6 +47,9 @@ document.addEventListener('alpine:init', () => {
         checkingIds: new Set(),
         mirroringIds: new Set(),
         checkingAll: false,
+        checkAllProgress: { done: 0, total: 0 },
+        downloadingAll: false,
+        downloadAllProgress: { done: 0, total: 0, errors: 0 },
 
         // ----- Löschen -------------------------------------------------------
         deleteId: null,
@@ -326,20 +329,28 @@ document.addEventListener('alpine:init', () => {
 
         // ----- Alle sichtbaren URLs prüfen ----------------------------------
         async checkAllVisible() {
-            const ids = this.dokumente.filter(d => d.quelle_url).map(d => d.id);
-            if (ids.length === 0) return;
+            const candidates = this.dokumente.filter(d => d.quelle_url);
+            if (candidates.length === 0) return;
             this.checkingAll = true;
+            this.checkAllProgress = { done: 0, total: candidates.length };
             try {
-                const results = await api.post('/dokumente/url-check', { ids });
-                for (const result of results) {
-                    const idx = this.dokumente.findIndex(d => d.id === result.id);
-                    if (idx !== -1) {
-                        this.dokumente[idx] = { ...this.dokumente[idx], ...result };
+                for (const dok of candidates) {
+                    this.checkingIds = new Set([...this.checkingIds, dok.id]);
+                    try {
+                        const results = await api.post('/dokumente/url-check', { ids: [dok.id] });
+                        const result = results[0];
+                        const idx = this.dokumente.findIndex(d => d.id === dok.id);
+                        if (idx !== -1) {
+                            this.dokumente[idx] = { ...this.dokumente[idx], ...result };
+                        }
+                    } catch (e) {
+                        // Einzelfehler ignorieren, weiter mit nächstem
+                    } finally {
+                        this.checkingIds = new Set([...this.checkingIds].filter(id => id !== dok.id));
+                        this.checkAllProgress.done++;
                     }
                 }
-                Alpine.store('notify').success(`${results.length} URL(s) geprüft.`);
-            } catch (e) {
-                Alpine.store('notify').error(e.message || 'URL-Prüfung fehlgeschlagen.');
+                Alpine.store('notify').success(`${candidates.length} URL(s) geprüft.`);
             } finally {
                 this.checkingAll = false;
             }
@@ -359,6 +370,36 @@ document.addEventListener('alpine:init', () => {
                 Alpine.store('notify').error(e.message || 'Spiegeln fehlgeschlagen.');
             } finally {
                 this.mirroringIds = new Set([...this.mirroringIds].filter(id => id !== dok.id));
+            }
+        },
+
+        // ----- Alle sichtbaren Dokumente herunterladen (spiegeln + URL-Check) --
+        async downloadAll() {
+            const candidates = this.dokumente.filter(d => d.quelle_url);
+            if (candidates.length === 0) return;
+            this.downloadingAll = true;
+            this.downloadAllProgress = { done: 0, total: candidates.length, errors: 0 };
+            for (const dok of candidates) {
+                this.mirroringIds = new Set([...this.mirroringIds, dok.id]);
+                try {
+                    const updated = await api.post('/dokumente/' + dok.id + '/spiegel', {});
+                    const idx = this.dokumente.findIndex(d => d.id === dok.id);
+                    if (idx !== -1) {
+                        this.dokumente[idx] = { ...this.dokumente[idx], ...updated };
+                    }
+                } catch (e) {
+                    this.downloadAllProgress.errors++;
+                } finally {
+                    this.mirroringIds = new Set([...this.mirroringIds].filter(id => id !== dok.id));
+                    this.downloadAllProgress.done++;
+                }
+            }
+            this.downloadingAll = false;
+            const { done, errors } = this.downloadAllProgress;
+            if (errors === 0) {
+                Alpine.store('notify').success(`${done} Dokument(e) heruntergeladen.`);
+            } else {
+                Alpine.store('notify').error(`${done - errors} von ${done} heruntergeladen, ${errors} Fehler.`);
             }
         },
 

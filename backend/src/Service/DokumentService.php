@@ -214,8 +214,10 @@ class DokumentService
         ]);
 
         return [
-            'pfad'         => $filename,
+            'pfad'          => $filename,
             'groesse_bytes' => $groesse,
+            'http_status'   => $httpCode,
+            'geprueft_am'   => date('Y-m-d H:i:s'),
         ];
     }
 }

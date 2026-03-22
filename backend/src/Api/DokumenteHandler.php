@@ -203,9 +203,14 @@ class DokumenteHandler extends BaseHandler
         }
 
         $this->repo->updateSpiegel($id, $result['pfad'], $result['groesse_bytes']);
+        $this->repo->updateUrlCheck($id, $result['http_status'], $result['geprueft_am'], $result['groesse_bytes']);
 
-        AuditRepository::log($user['benutzername'], 'SPIEGEL', 'dokumente', $id, null,
-            ['spiegel_pfad' => $result['pfad'], 'spiegel_groesse_bytes' => $result['groesse_bytes']]);
+        AuditRepository::log($user['benutzername'], 'SPIEGEL', 'dokumente', $id, null, [
+            'spiegel_pfad'        => $result['pfad'],
+            'spiegel_groesse_bytes' => $result['groesse_bytes'],
+            'url_status'          => $result['http_status'],
+            'url_geprueft_am'     => $result['geprueft_am'],
+        ]);
 
         $updated = $this->repo->findById($id);
         Response::success($updated);

@@ -1729,11 +1729,22 @@
 
                             <!-- Alle sichtbaren URLs prüfen -->
                             <button class="outline secondary" @click="checkAllVisible()"
-                                    :disabled="checkingAll || !dokumente.some(d => d.quelle_url)"
+                                    :disabled="checkingAll || downloadingAll || !dokumente.some(d => d.quelle_url)"
                                     style="width:auto; margin:0; padding:0.5rem 0.8rem; white-space:nowrap;"
                                     title="Alle sichtbaren URLs auf Erreichbarkeit prüfen">
                                 <span x-show="!checkingAll">✓ Alle prüfen</span>
-                                <span x-show="checkingAll">Prüfe…</span>
+                                <span x-show="checkingAll"
+                                      x-text="'✓ ' + checkAllProgress.done + ' / ' + checkAllProgress.total"></span>
+                            </button>
+
+                            <!-- Alle sichtbaren Dokumente herunterladen -->
+                            <button class="outline secondary" @click="downloadAll()"
+                                    :disabled="downloadingAll || checkingAll || !dokumente.some(d => d.quelle_url)"
+                                    style="width:auto; margin:0; padding:0.5rem 0.8rem; white-space:nowrap;"
+                                    title="Alle sichtbaren Dokumente herunterladen, lokal spiegeln und URL-Status aktualisieren">
+                                <span x-show="!downloadingAll">↓ Alle herunterladen</span>
+                                <span x-show="downloadingAll"
+                                      x-text="'↓ ' + downloadAllProgress.done + ' / ' + downloadAllProgress.total"></span>
                             </button>
                         </div>
 
