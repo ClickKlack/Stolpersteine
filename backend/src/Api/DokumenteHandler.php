@@ -32,6 +32,7 @@ class DokumenteHandler extends BaseHandler
             'person_id'       => $this->queryParam('person_id'),
             'stolperstein_id' => $this->queryParam('stolperstein_id'),
             'typ'             => $this->queryParam('typ'),
+            'url_fehler'      => $this->queryParam('url_fehler'),
         ]);
 
         Response::success($this->repo->findAll($filter));

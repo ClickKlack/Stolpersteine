@@ -1723,6 +1723,12 @@
                                 <option value="scan">Scan</option>
                             </select>
 
+                            <!-- URL-Fehler-Filter -->
+                            <label style="display:flex; align-items:center; gap:0.4rem; margin:0; cursor:pointer; white-space:nowrap; font-size:0.9rem;">
+                                <input type="checkbox" x-model="filter.url_fehler" @change="load()" style="margin:0;">
+                                Nur URL-Fehler
+                            </label>
+
                             <!-- Aktualisieren (kompakt) -->
                             <button class="outline" @click="load()"
                                     style="width:auto; margin:0; padding:0.5rem 0.8rem;">↺</button>

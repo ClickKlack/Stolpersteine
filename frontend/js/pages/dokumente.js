@@ -7,7 +7,7 @@ document.addEventListener('alpine:init', () => {
         error: null,
 
         // ----- Filter -------------------------------------------------------
-        filter: { person_id: '', typ: '' },
+        filter: { person_id: '', typ: '', url_fehler: false },
 
         // ----- Personensuche -----------------------------------------------
         personSuchtext: '',
@@ -112,6 +112,7 @@ document.addEventListener('alpine:init', () => {
                 const params = new URLSearchParams();
                 if (this.filter.person_id) params.set('person_id', this.filter.person_id);
                 if (this.filter.typ)       params.set('typ', this.filter.typ);
+                if (this.filter.url_fehler) params.set('url_fehler', '1');
                 const qs = params.toString() ? '?' + params.toString() : '';
                 this.dokumente = await api.get('/dokumente' + qs);
             } catch (e) {

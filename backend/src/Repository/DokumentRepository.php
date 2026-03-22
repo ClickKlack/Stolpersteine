@@ -36,6 +36,11 @@ class DokumentRepository
             $params[] = $filter['typ'];
         }
 
+        if (!empty($filter['url_fehler'])) {
+            // Dokumente mit URL, deren Status nicht 200 ist (inkl. noch nicht geprüft)
+            $where[] = 'd.quelle_url IS NOT NULL AND (d.url_status IS NULL OR d.url_status != 200)';
+        }
+
         $sql = 'SELECT d.id, d.stolperstein_id, d.titel, d.beschreibung_kurz,
                        d.typ, d.dateiname, d.dateipfad, d.quelle_url,
                        d.groesse_bytes, d.quelle,
