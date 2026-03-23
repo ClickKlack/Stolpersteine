@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Stolpersteine\Api;
 
 use Stolpersteine\Auth\Auth;
+use Stolpersteine\Config\Logger;
 use Stolpersteine\Repository\VerlegeortRepository;
 use Stolpersteine\Repository\StolpersteinRepository;
 use Stolpersteine\Repository\AuditRepository;
@@ -35,7 +36,9 @@ class VerlegeorteHandler extends BaseHandler
             'status'    => $this->queryParam('status'),
         ]);
 
-        Response::success($this->repo->findAll($filter));
+        $orte = $this->repo->findAll($filter);
+        Logger::get()->debug('Verlegeorte-Liste abgerufen', ['filter' => $filter, 'anzahl' => count($orte)]);
+        Response::success($orte);
     }
 
     // GET /verlegeorte/{id}
@@ -63,6 +66,7 @@ class VerlegeorteHandler extends BaseHandler
         $ort = $this->repo->findById($id);
 
         AuditRepository::log($user['benutzername'], 'INSERT', 'verlegeorte', $id, null, $ort);
+        Logger::get()->info('Verlegeort erstellt', ['id' => $id, 'adresse' => ($ort['strasse_aktuell'] ?? '') . ' ' . ($ort['hausnummer_aktuell'] ?? ''), 'von' => $user['benutzername']]);
 
         Response::created($ort);
     }
@@ -89,6 +93,7 @@ class VerlegeorteHandler extends BaseHandler
 
         AuditRepository::log($user['benutzername'], 'UPDATE', 'verlegeorte', $id, $alt, $neu);
         $this->suchindex->updateForLayingLocation($id);
+        Logger::get()->info('Verlegeort aktualisiert', ['id' => $id, 'adresse' => ($neu['strasse_aktuell'] ?? '') . ' ' . ($neu['hausnummer_aktuell'] ?? ''), 'von' => $user['benutzername']]);
 
         Response::success($neu);
     }
@@ -107,10 +112,12 @@ class VerlegeorteHandler extends BaseHandler
         try {
             $this->repo->delete($id);
         } catch (\RuntimeException $e) {
+            Logger::get()->warning('Verlegeort konnte nicht gelöscht werden', ['id' => $id, 'grund' => $e->getMessage(), 'von' => $user['benutzername']]);
             Response::error($e->getMessage(), 409);
         }
 
         AuditRepository::log($user['benutzername'], 'DELETE', 'verlegeorte', $id, $alt, null);
+        Logger::get()->warning('Verlegeort gelöscht', ['id' => $id, 'adresse' => ($alt['strasse_aktuell'] ?? '') . ' ' . ($alt['hausnummer_aktuell'] ?? ''), 'von' => $user['benutzername']]);
 
         Response::noContent();
     }

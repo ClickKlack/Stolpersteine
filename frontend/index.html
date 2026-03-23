@@ -295,53 +295,193 @@
                             <span aria-busy="true"></span> Lade Statistiken …
                         </div>
 
-                        <template x-if="!loading && stats">
-                            <div>
-                                <div class="stat-grid">
-                                    <a href="#personen" class="stat-card">
-                                        <div class="stat-value" x-text="stats.personen"></div>
-                                        <div class="stat-label">Personen</div>
-                                    </a>
-                                    <a href="#stolpersteine" class="stat-card">
-                                        <div class="stat-value" x-text="stats.steine"></div>
-                                        <div class="stat-label">Stolpersteine</div>
-                                    </a>
-                                    <a href="#verlegeorte" class="stat-card">
-                                        <div class="stat-value" x-text="stats.orte"></div>
-                                        <div class="stat-label">Verlegeorte</div>
-                                    </a>
-                                    <a href="#dokumente" class="stat-card">
-                                        <div class="stat-value" x-text="stats.dokumente"></div>
-                                        <div class="stat-label">Dokumente</div>
-                                    </a>
-                                </div>
-                                <div class="stat-grid" style="margin-top:1rem;">
-                                    <a href="#adressen/staedte" class="stat-card">
-                                        <div class="stat-value" x-text="stats.staedte"></div>
-                                        <div class="stat-label">Städte</div>
-                                    </a>
-                                    <a href="#adressen/stadtteile" class="stat-card">
-                                        <div class="stat-value" x-text="stats.stadtteile"></div>
-                                        <div class="stat-label">Stadtteile</div>
-                                    </a>
-                                    <a href="#adressen/strassen" class="stat-card">
-                                        <div class="stat-value" x-text="stats.strassen"></div>
-                                        <div class="stat-label">Straßen</div>
-                                    </a>
-                                    <a href="#adressen/lokationen" class="stat-card">
-                                        <div class="stat-value" x-text="stats.lokationen"></div>
-                                        <div class="stat-label">Lokationen</div>
-                                    </a>
-                                    <a href="#adressen/plz" class="stat-card">
-                                        <div class="stat-value" x-text="stats.plz"></div>
-                                        <div class="stat-label">PLZ</div>
-                                    </a>
-                                </div>
-                            </div>
-                        </template>
-
                         <template x-if="!loading && error">
                             <p style="color: var(--pico-del-color);" x-text="error"></p>
+                        </template>
+
+                        <template x-if="!loading && stats">
+                            <div>
+
+                                <!-- PERSONEN -->
+                                <div class="dash-block">
+                                    <a class="dash-number" @click.prevent="navigateTo('personen')" href="#personen">
+                                        <div class="stat-value" x-text="stats.personen.gesamt"></div>
+                                        <div class="stat-label">Personen</div>
+                                    </a>
+                                    <div class="dash-charts">
+                                        <div class="dash-chart-label">Status</div>
+                                        <div class="stat-bar-chart">
+                                            <template x-for="seg in segmente(stats.personen.status, stats.personen.gesamt)" :key="seg.key">
+                                                <div class="stat-bar-segment"
+                                                     :style="{ width: seg.pct + '%', background: statusColor(seg.key) }"
+                                                     x-text="segLabel(seg)"></div>
+                                            </template>
+                                        </div>
+                                        <div class="stat-bar-legend">
+                                            <template x-for="seg in segmente(stats.personen.status, stats.personen.gesamt)" :key="seg.key">
+                                                <span class="stat-bar-legend-item">
+                                                    <span class="stat-bar-legend-dot" :style="{ background: statusColor(seg.key) }"></span>
+                                                    <span x-text="seg.n + '\u00a0' + statusLabel(seg.key)"></span>
+                                                </span>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- VERLEGEORTE -->
+                                <div class="dash-block">
+                                    <a class="dash-number" @click.prevent="navigateTo('verlegeorte')" href="#verlegeorte">
+                                        <div class="stat-value" x-text="stats.verlegeorte.gesamt"></div>
+                                        <div class="stat-label">Verlegeorte</div>
+                                    </a>
+                                    <div class="dash-charts">
+                                        <div class="dash-chart-label">Status</div>
+                                        <div class="stat-bar-chart">
+                                            <template x-for="seg in segmente(stats.verlegeorte.status, stats.verlegeorte.gesamt)" :key="seg.key">
+                                                <div class="stat-bar-segment"
+                                                     :style="{ width: seg.pct + '%', background: statusColor(seg.key) }"
+                                                     x-text="segLabel(seg)"></div>
+                                            </template>
+                                        </div>
+                                        <div class="stat-bar-legend">
+                                            <template x-for="seg in segmente(stats.verlegeorte.status, stats.verlegeorte.gesamt)" :key="seg.key">
+                                                <span class="stat-bar-legend-item">
+                                                    <span class="stat-bar-legend-dot" :style="{ background: statusColor(seg.key) }"></span>
+                                                    <span x-text="seg.n + '\u00a0' + statusLabel(seg.key)"></span>
+                                                </span>
+                                            </template>
+                                        </div>
+                                        <details class="stadtteil-details">
+                                            <summary x-text="'Stadtteile (' + stats.verlegeorte.stadtteile.length + ')'"></summary>
+                                            <table class="stadtteil-table">
+                                                <tbody>
+                                                    <template x-for="st in stats.verlegeorte.stadtteile" :key="st.name">
+                                                        <tr>
+                                                            <td x-text="st.name"></td>
+                                                            <td x-text="st.gesamt"></td>
+                                                            <td style="width:100%;">
+                                                                <div class="stat-bar-chart" style="height:1.1rem;">
+                                                                    <template x-for="seg in segmente(st.status, st.gesamt)" :key="seg.key">
+                                                                        <div class="stat-bar-segment"
+                                                                             :style="{ width: seg.pct + '%', background: statusColor(seg.key) }"
+                                                                             x-text="segLabel(seg)"></div>
+                                                                    </template>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </template>
+                                                </tbody>
+                                            </table>
+                                        </details>
+                                    </div>
+                                </div>
+
+                                <!-- STOLPERSTEINE -->
+                                <div class="dash-block">
+                                    <a class="dash-number" @click.prevent="navigateTo('stolpersteine')" href="#stolpersteine">
+                                        <div class="stat-value" x-text="stats.stolpersteine.gesamt"></div>
+                                        <div class="stat-label">Stolpersteine</div>
+                                    </a>
+                                    <div class="dash-charts">
+                                        <div class="dash-charts-row">
+                                            <div class="dash-chart">
+                                                <div class="dash-chart-label">Status</div>
+                                                <div class="stat-bar-chart">
+                                                    <template x-for="seg in segmente(stats.stolpersteine.status, stats.stolpersteine.gesamt)" :key="seg.key">
+                                                        <div class="stat-bar-segment"
+                                                             :style="{ width: seg.pct + '%', background: statusColor(seg.key) }"
+                                                             x-text="segLabel(seg)"></div>
+                                                    </template>
+                                                </div>
+                                                <div class="stat-bar-legend">
+                                                    <template x-for="seg in segmente(stats.stolpersteine.status, stats.stolpersteine.gesamt)" :key="seg.key">
+                                                        <span class="stat-bar-legend-item">
+                                                            <span class="stat-bar-legend-dot" :style="{ background: statusColor(seg.key) }"></span>
+                                                            <span x-text="seg.n + '\u00a0' + statusLabel(seg.key)"></span>
+                                                        </span>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                            <div class="dash-chart">
+                                                <div class="dash-chart-label">Zustand</div>
+                                                <div class="stat-bar-chart">
+                                                    <template x-for="seg in segmente(stats.stolpersteine.zustand, stats.stolpersteine.gesamt)" :key="seg.key">
+                                                        <div class="stat-bar-segment"
+                                                             :style="{ width: seg.pct + '%', background: statusColor(seg.key) }"
+                                                             x-text="segLabel(seg)"></div>
+                                                    </template>
+                                                </div>
+                                                <div class="stat-bar-legend">
+                                                    <template x-for="seg in segmente(stats.stolpersteine.zustand, stats.stolpersteine.gesamt)" :key="seg.key">
+                                                        <span class="stat-bar-legend-item">
+                                                            <span class="stat-bar-legend-dot" :style="{ background: statusColor(seg.key) }"></span>
+                                                            <span x-text="seg.n + '\u00a0' + statusLabel(seg.key)"></span>
+                                                        </span>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <details class="stadtteil-details">
+                                            <summary x-text="'Stadtteile (' + stats.stolpersteine.stadtteile.length + ')'"></summary>
+                                            <table class="stadtteil-table">
+                                                <tbody>
+                                                    <template x-for="st in stats.stolpersteine.stadtteile" :key="st.name">
+                                                        <tr>
+                                                            <td x-text="st.name"></td>
+                                                            <td x-text="st.gesamt"></td>
+                                                            <td style="width:60%;">
+                                                                <div class="stat-bar-chart" style="height:1.1rem;">
+                                                                    <template x-for="seg in segmente(st.status, st.gesamt)" :key="seg.key">
+                                                                        <div class="stat-bar-segment"
+                                                                             :style="{ width: seg.pct + '%', background: statusColor(seg.key) }"
+                                                                             x-text="segLabel(seg)"></div>
+                                                                    </template>
+                                                                </div>
+                                                            </td>
+                                                            <td style="width:40%;">
+                                                                <div class="stat-bar-chart" style="height:1.1rem;">
+                                                                    <template x-for="seg in segmente(st.zustand, st.gesamt)" :key="seg.key">
+                                                                        <div class="stat-bar-segment"
+                                                                             :style="{ width: seg.pct + '%', background: statusColor(seg.key) }"
+                                                                             x-text="segLabel(seg)"></div>
+                                                                    </template>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </template>
+                                                </tbody>
+                                            </table>
+                                        </details>
+                                    </div>
+                                </div>
+
+                                <!-- DOKUMENTE -->
+                                <div class="dash-block">
+                                    <a class="dash-number" @click.prevent="navigateTo('dokumente')" href="#dokumente">
+                                        <div class="stat-value" x-text="stats.dokumente.gesamt"></div>
+                                        <div class="stat-label">Dokumente</div>
+                                    </a>
+                                    <div class="dash-charts">
+                                        <div class="dash-chart-label">URL-Status</div>
+                                        <div class="stat-bar-chart">
+                                            <template x-for="seg in segmente(stats.dokumente.url_status, stats.dokumente.gesamt)" :key="seg.key">
+                                                <div class="stat-bar-segment"
+                                                     :style="{ width: seg.pct + '%', background: statusColor(seg.key) }"
+                                                     x-text="segLabel(seg)"></div>
+                                            </template>
+                                        </div>
+                                        <div class="stat-bar-legend">
+                                            <template x-for="seg in segmente(stats.dokumente.url_status, stats.dokumente.gesamt)" :key="seg.key">
+                                                <span class="stat-bar-legend-item">
+                                                    <span class="stat-bar-legend-dot" :style="{ background: statusColor(seg.key) }"></span>
+                                                    <span x-text="seg.n + '\u00a0' + statusLabel(seg.key)"></span>
+                                                </span>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
                         </template>
 
                         <p style="color: var(--pico-muted-color); font-size: 0.9rem;">

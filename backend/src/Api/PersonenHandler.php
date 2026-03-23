@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Stolpersteine\Api;
 
 use Stolpersteine\Auth\Auth;
+use Stolpersteine\Config\Logger;
 use Stolpersteine\Repository\PersonRepository;
 use Stolpersteine\Repository\StolpersteinRepository;
 use Stolpersteine\Repository\AuditRepository;
@@ -35,6 +36,7 @@ class PersonenHandler extends BaseHandler
         ]);
 
         $personen = $this->repo->findAll($filter);
+        Logger::get()->debug('Personen-Liste abgerufen', ['filter' => $filter, 'anzahl' => count($personen)]);
         Response::success($personen);
     }
 
@@ -65,6 +67,7 @@ class PersonenHandler extends BaseHandler
         $person = $this->repo->findById($id);
 
         AuditRepository::log($user['benutzername'], 'INSERT', 'personen', $id, null, $person);
+        Logger::get()->info('Person erstellt', ['id' => $id, 'nachname' => $person['nachname'] ?? null, 'von' => $user['benutzername']]);
 
         Response::created($person);
     }
@@ -93,6 +96,7 @@ class PersonenHandler extends BaseHandler
 
         AuditRepository::log($user['benutzername'], 'UPDATE', 'personen', $id, $alt, $neu);
         $this->suchindex->updateForPerson($id);
+        Logger::get()->info('Person aktualisiert', ['id' => $id, 'nachname' => $neu['nachname'] ?? null, 'von' => $user['benutzername']]);
 
         Response::success($neu);
     }
@@ -111,10 +115,12 @@ class PersonenHandler extends BaseHandler
         try {
             $this->repo->delete($id);
         } catch (\RuntimeException $e) {
+            Logger::get()->warning('Person konnte nicht gelöscht werden', ['id' => $id, 'grund' => $e->getMessage(), 'von' => $user['benutzername']]);
             Response::error($e->getMessage(), 409);
         }
 
         AuditRepository::log($user['benutzername'], 'DELETE', 'personen', $id, $alt, null);
+        Logger::get()->warning('Person gelöscht', ['id' => $id, 'nachname' => $alt['nachname'] ?? null, 'von' => $user['benutzername']]);
 
         Response::noContent();
     }

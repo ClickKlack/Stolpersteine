@@ -155,6 +155,9 @@ $router->add('POST',   '/adressen/alle-lokationen',      'Stolpersteine\Api\Adre
 $router->add('PUT',    '/adressen/alle-lokationen/{id}', 'Stolpersteine\Api\AdressenHandler', 'updateLokation');
 $router->add('DELETE', '/adressen/alle-lokationen/{id}', 'Stolpersteine\Api\AdressenHandler', 'deleteLokation');
 
+// Dashboard
+$router->add('GET', '/dashboard/statistiken', 'Stolpersteine\Api\DashboardHandler', 'statistiken');
+
 // Konfiguration
 $router->add('GET', '/konfiguration', 'Stolpersteine\Api\KonfigurationHandler', 'index');
 
