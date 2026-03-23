@@ -581,14 +581,58 @@ document.addEventListener('alpine:init', () => {
             return d ? `${d}.${m}.${y}` : iso;
         },
 
-        // ----- Inschrift einfügen (Anführungszeichen entfernen) ------------
+        // ----- Inschrift einfügen (Anführungszeichen entfernen + Großschrift konvertieren) ----
         inschriftEinfuegen(e) {
             e.preventDefault();
             let t = e.clipboardData.getData('text');
             // Führende/abschließende Anführungs- und Hochkommazeichen entfernen
             t = t.replace(/^[\u0022\u0027\u00AB\u00BB\u2018\u2019\u201A\u201B\u201C\u201D\u201E\u201F\u2039\u203A]+|[\u0022\u0027\u00AB\u00BB\u2018\u2019\u201C\u201D\u2039\u203A]+$/g, '');
+            if (this._istGrossschrift(t)) {
+                t = this._inschriftKonvertieren(t);
+            }
             e.target.setRangeText(t, e.target.selectionStart, e.target.selectionEnd, 'end');
             this.form.inschrift = e.target.value;
+        },
+
+        // Erkennt ob Text überwiegend Großschrift ist (≥ 80 % der Buchstaben)
+        _istGrossschrift(text) {
+            const buchstaben = text.replace(/[^a-zA-ZäöüÄÖÜ]/g, '');
+            if (buchstaben.length < 4) return false;
+            const gross = buchstaben.replace(/[^A-ZÄÖÜ]/g, '').length;
+            return (gross / buchstaben.length) >= 0.8;
+        },
+
+        // Konvertiert Großschrift-Inschrift in natürliche deutsche Schreibweise
+        _inschriftKonvertieren(text) {
+            const klein = new Set([
+                'in','im','am','an','auf','aus','bei','bis','durch','für','gegen','mit',
+                'nach','neben','ohne','seit','über','um','unter','von','vor','zu','zum',
+                'zur','der','die','das','dem','den','des','ein','eine','einem','einen',
+                'eines','und','oder','aber','auch','als','ab',
+                'wohnte','lebte','arbeitete','wurde','war',
+                'deportiert','ermordet','gestorben','umgekommen','geflüchtet','überlebt',
+                'verhaftet','verschleppt','inhaftiert','erschossen','vergast','geflohen','emigriert',
+            ]);
+            // Abkürzungen, deren Punkt kein Satzende markiert
+            const abkuerzungen = new Set(['geb.','ca.','jg.','nr.','str.','ges.']);
+
+            let nachSatzEnde = true; // Textanfang gilt als Satzanfang
+            return text.split('\n').map(zeile => {
+                const teile = zeile.split(/(\s+)/);
+                return teile.map(teil => {
+                    if (/^\s+$/.test(teil)) return teil;
+                    const wort = teil.toLowerCase()
+                        .replace(/^geb\.$/, 'geb.')
+                        .replace(/^ca\.$/, 'ca.');
+                    const result = (nachSatzEnde || !klein.has(wort))
+                        ? wort.charAt(0).toUpperCase() + wort.slice(1)
+                        : wort;
+                    // Satzende: ! oder ? immer; . nur wenn kein bekanntes Abkürzungswort
+                    nachSatzEnde = /[!?]$/.test(teil) ||
+                        (/\.$/.test(teil) && !abkuerzungen.has(wort));
+                    return result;
+                }).join('');
+            }).join('\n');
         },
 
         // ----- Löschen -----------------------------------------------------

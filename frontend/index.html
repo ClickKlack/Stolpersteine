@@ -1226,12 +1226,19 @@
                                     </div>
 
                                     <!-- Inschrift -->
-                                    <label style="margin-top:var(--pico-spacing);">
-                                        Inschrift
+                                    <div style="margin-top:var(--pico-spacing);">
+                                        <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.25rem;">
+                                            <span style="font-size:1rem;">Inschrift</span>
+                                            <button type="button" class="btn-icon btn-outlined"
+                                                    style="font-size:0.75rem; padding:0.1rem 0.4rem;"
+                                                    :disabled="!form.inschrift || saving"
+                                                    @click="if (_istGrossschrift(form.inschrift)) form.inschrift = _inschriftKonvertieren(form.inschrift)"
+                                                    title="Großkleinschreibung anpassen">Aa</button>
+                                        </div>
                                         <textarea x-model="form.inschrift" rows="3" :disabled="saving"
                                                   placeholder="Inschrift des Stolpersteins …"
                                                   @paste="inschriftEinfuegen($event)"></textarea>
-                                    </label>
+                                    </div>
 
                                     <!-- Wikidata + OSM -->
                                     <div class="grid">
