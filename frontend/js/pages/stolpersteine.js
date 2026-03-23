@@ -237,12 +237,14 @@ document.addEventListener('alpine:init', () => {
                 id:       stein.person_id,
                 vorname:  stein.vorname  || '',
                 nachname: stein.nachname || '',
+                status:   stein.person_status || '',
             };
             this.verlegeortDisplay = {
                 id:         stein.verlegeort_id,
                 strasse:    stein.strasse_aktuell    || '',
                 hausnummer: stein.hausnummer_aktuell || '',
                 stadtteil:  stein.stadtteil          || '',
+                status:     stein.verlegeort_status  || '',
             };
             this.verlegeortGrid = {
                 n: stein.grid_n ? parseInt(stein.grid_n) : null,

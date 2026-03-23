@@ -78,9 +78,9 @@ class StolpersteinRepository
         }
 
         $sql = 'SELECT s.id, s.person_id, s.verlegeort_id,
-                       p.vorname, p.nachname,
+                       p.vorname, p.nachname, p.status AS person_status,
                        str.name AS strasse_aktuell, v.hausnummer_aktuell,
-                       st.name  AS stadtteil,
+                       st.name  AS stadtteil, v.status AS verlegeort_status,
                        s.inschrift, s.verlegedatum, s.status, s.zustand,
                        s.wikidata_id_stein, s.osm_id,
                        s.foto_pfad, s.wikimedia_commons,

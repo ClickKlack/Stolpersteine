@@ -630,7 +630,12 @@
                                         </label>
                                     </div>
                                     <div>
-                                        <span style="font-size:0.875rem;">Wikidata-ID</span>
+                                        <div style="display:flex; align-items:center; gap:0.4rem;">
+                                            <span style="font-size:0.875rem;">Wikidata-ID</span>
+                                            <button type="button" class="btn-icon btn-outlined" style="font-size:0.75rem; padding:0.1rem 0.35rem;"
+                                                    @click="window.open('https://www.wikidata.org/w/index.php?search=' + encodeURIComponent([form.vorname, form.nachname].filter(Boolean).join(' ')), '_blank')"
+                                                    title="Wikidata nach Name durchsuchen">🔍</button>
+                                        </div>
                                         <div style="display:flex; gap:0.4rem; align-items:center; margin-top:0.35rem;">
                                             <input type="text" x-model="form.wikidata_id_person" placeholder="Q12345" :disabled="saving" style="margin:0; flex:1;">
                                             <button type="button" class="btn-icon btn-wikidata"
@@ -1027,8 +1032,9 @@
 
                                         <template x-if="personDisplay">
                                             <div class="adresse-block">
-                                                <span style="flex:1;">
+                                                <span style="flex:1; display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
                                                     <span x-text="[personDisplay.vorname, personDisplay.nachname].filter(Boolean).join(' ')"></span>
+                                                    <span x-show="personDisplay.status" class="badge" :class="'badge-status-' + personDisplay.status" x-text="statusLabel(personDisplay.status)"></span>
                                                 </span>
                                                 <button type="button" class="btn-icon btn-outlined"
                                                         @click="modalOpen = false; navigateTo('personen', { openEditId: form.person_id })"
@@ -1081,6 +1087,7 @@
                                                     </template>
                                                     <small x-text="[verlegeortDisplay.plz, verlegeortDisplay.stadtteil].filter(Boolean).join(' ')"
                                                            style="color:var(--pico-muted-color);"></small>
+                                                    <span x-show="verlegeortDisplay.status" class="badge" :class="'badge-status-' + verlegeortDisplay.status" x-text="statusLabel(verlegeortDisplay.status)"></span>
                                                 </span>
                                                 <button type="button" class="btn-icon btn-outlined"
                                                         @click="modalOpen = false; navigateTo('verlegeorte', { openEditId: form.verlegeort_id })"
