@@ -175,4 +175,37 @@ class BenutzerRepository
             'UPDATE benutzer SET passwort_hash = ? WHERE id = ?'
         )->execute([$passwortHash, $id]);
     }
+
+    /** Remember-Token setzen (gehasht speichern). */
+    public function setRememberToken(int $id, string $tokenHash, string $ablaufSql): void
+    {
+        $pdo = Database::connection();
+        $pdo->prepare(
+            'UPDATE benutzer SET remember_token = ?, remember_token_ablauf = ? WHERE id = ?'
+        )->execute([$tokenHash, $ablaufSql, $id]);
+    }
+
+    /** Benutzer anhand des gehashten Remember-Tokens suchen (nur wenn noch gültig). */
+    public function findByRememberToken(string $tokenHash): ?array
+    {
+        $pdo  = Database::connection();
+        $stmt = $pdo->prepare(
+            'SELECT id, benutzername, rolle
+             FROM benutzer
+             WHERE aktiv = 1 AND remember_token = ? AND remember_token_ablauf > NOW()
+             LIMIT 1'
+        );
+        $stmt->execute([$tokenHash]);
+        $row = $stmt->fetch();
+        return $row ?: null;
+    }
+
+    /** Remember-Token löschen (Logout). */
+    public function clearRememberToken(int $id): void
+    {
+        $pdo = Database::connection();
+        $pdo->prepare(
+            'UPDATE benutzer SET remember_token = NULL, remember_token_ablauf = NULL WHERE id = ?'
+        )->execute([$id]);
+    }
 }

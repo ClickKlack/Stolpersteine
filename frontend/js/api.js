@@ -26,6 +26,9 @@ const api = (() => {
         const json = await res.json().catch(() => ({ error: res.statusText }));
 
         if (!res.ok) {
+            if (res.status === 401 && !path.startsWith('/auth/login') && !path.startsWith('/auth/passwort')) {
+                window.dispatchEvent(new CustomEvent('auth:session-expired'));
+            }
             throw { status: res.status, message: json.error || res.statusText };
         }
 

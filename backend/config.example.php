@@ -21,7 +21,10 @@ return [
         'upload_dir'   => __DIR__ . '/../uploads',
         'log_dir'      => __DIR__ . '/../storage/logs',     // Lokal: neben config.php; Produktion: stst/storage/logs
         'spiegel_dir'  => __DIR__ . '/../storage/spiegel',  // lokale PDF-Spiegelung, nicht web-zugänglich
-        'base_url'     => 'https://example.com',
+        'base_url'         => 'https://example.com',
+        // Gültigkeitsdauer des persistenten Remember-Me-Tokens in Sekunden.
+        // Standard: 2592000 (30 Tage). Nutzer bleiben nach Browser-Schließen eingeloggt.
+        'remember_lifetime' => 2592000,
         // CORS: erlaubte Frontend-Origins (nur relevant wenn debug = true)
         'cors_origins' => [
             // 'http://localhost:8001',

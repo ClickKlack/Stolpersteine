@@ -16,27 +16,76 @@ class Auth
 {
     private static bool $sessionStarted = false;
 
-    // Session starten (einmalig)
+    // Session starten (einmalig) + ggf. per Remember-Token wiederherstellen
     private static function start(): void
     {
         if (self::$sessionStarted) {
             return;
         }
 
-        $cfg = Config::get('session');
+        $cfg    = Config::get('session');
+        $secure = !(($host = explode(':', $_SERVER['HTTP_HOST'])[0]) === 'localhost' || str_starts_with($host, '127.'));
 
         session_name($cfg['name'] ?? 'stolpersteine_sess');
 
         session_set_cookie_params([
-            'lifetime' => 0,                    // Cookie gilt bis Browser-Ende
+            'lifetime' => 0,        // Session-Cookie – Remember-Cookie läuft separat
             'path'     => '/',
-            'secure'   => !(($host = explode(':', $_SERVER['HTTP_HOST'])[0]) === 'localhost' || str_starts_with($host, '127.')),
+            'secure'   => $secure,
             'httponly' => true,
             'samesite' => 'Strict',
         ]);
 
         session_start();
         self::$sessionStarted = true;
+
+        // Keine aktive Session? → Remember-Token prüfen
+        if (!isset($_SESSION['benutzer'])) {
+            $cookieToken = $_COOKIE['stolpersteine_remember'] ?? '';
+            if ($cookieToken !== '') {
+                $tokenHash = hash('sha256', $cookieToken);
+                $repo      = new BenutzerRepository();
+                $benutzer  = $repo->findByRememberToken($tokenHash);
+
+                if ($benutzer !== null) {
+                    // Session neu aufbauen
+                    session_regenerate_id(true);
+                    $_SESSION['benutzer']      = [
+                        'id'          => $benutzer['id'],
+                        'benutzername'=> $benutzer['benutzername'],
+                        'rolle'       => $benutzer['rolle'],
+                    ];
+                    $_SESSION['eingeloggt_am'] = time();
+
+                    // Token rotieren (altes Token ungültig machen)
+                    $lifetime    = (int) (Config::get('app')['remember_lifetime'] ?? 2592000);
+                    $neuerToken  = bin2hex(random_bytes(32));
+                    $ablaufSql   = date('Y-m-d H:i:s', time() + $lifetime);
+                    $repo->setRememberToken($benutzer['id'], hash('sha256', $neuerToken), $ablaufSql);
+
+                    setcookie('stolpersteine_remember', $neuerToken, [
+                        'expires'  => time() + $lifetime,
+                        'path'     => '/',
+                        'secure'   => $secure,
+                        'httponly' => true,
+                        'samesite' => 'Strict',
+                    ]);
+
+                    Logger::get()->info('Session per Remember-Token wiederhergestellt', [
+                        'benutzername' => $benutzer['benutzername'],
+                    ]);
+                } else {
+                    // Ungültiges oder abgelaufenes Token – Cookie entfernen
+                    setcookie('stolpersteine_remember', '', [
+                        'expires'  => 1,
+                        'path'     => '/',
+                        'secure'   => $secure,
+                        'httponly' => true,
+                        'samesite' => 'Strict',
+                    ]);
+                }
+            }
+        }
     }
 
     // Gibt den eingeloggten Benutzer zurück oder null
@@ -113,6 +162,22 @@ class Auth
         $_SESSION['benutzer']      = $sessionData;
         $_SESSION['eingeloggt_am'] = time();
 
+        // Remember-Token setzen (persistentes Login)
+        $secure   = !(($host = explode(':', $_SERVER['HTTP_HOST'])[0]) === 'localhost' || str_starts_with($host, '127.'));
+        $lifetime = (int) (Config::get('app')['remember_lifetime'] ?? 2592000); // 30 Tage
+        $token    = bin2hex(random_bytes(32));
+        $ablauf   = date('Y-m-d H:i:s', time() + $lifetime);
+
+        (new BenutzerRepository())->setRememberToken($benutzer['id'], hash('sha256', $token), $ablauf);
+
+        setcookie('stolpersteine_remember', $token, [
+            'expires'  => time() + $lifetime,
+            'path'     => '/',
+            'secure'   => $secure,
+            'httponly' => true,
+            'samesite' => 'Strict',
+        ]);
+
         Logger::get()->info('Benutzer eingeloggt', [
             'benutzername' => $sessionData['benutzername'],
             'rolle'        => $sessionData['rolle'],
@@ -121,10 +186,26 @@ class Auth
         return $sessionData;
     }
 
-    // Logout: Session zerstören
+    // Logout: Session und Remember-Token zerstören
     public static function logout(): void
     {
         self::start();
+
+        // Remember-Token aus DB löschen
+        if (isset($_SESSION['benutzer']['id'])) {
+            (new BenutzerRepository())->clearRememberToken((int) $_SESSION['benutzer']['id']);
+        }
+
+        // Remember-Cookie löschen
+        $secure = !(($host = explode(':', $_SERVER['HTTP_HOST'])[0]) === 'localhost' || str_starts_with($host, '127.'));
+        setcookie('stolpersteine_remember', '', [
+            'expires'  => 1,
+            'path'     => '/',
+            'secure'   => $secure,
+            'httponly' => true,
+            'samesite' => 'Strict',
+        ]);
+
         $_SESSION = [];
         session_destroy();
     }

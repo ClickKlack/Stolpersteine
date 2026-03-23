@@ -121,6 +121,13 @@ document.addEventListener('alpine:init', () => {
             // damit der Hash nicht überschrieben wird bevor loginPage ihn liest
             const isResetLink = /^#passwort-reset\?token=/i.test(location.hash);
 
+            // Zentraler Handler für abgelaufene Sessions:
+            // Jeder API-Aufruf mit 401 (außer Login/Passwort) löst diesen aus.
+            window.addEventListener('auth:session-expired', () => {
+                Alpine.store('auth').user = null;
+                Alpine.store('router').go('login');
+            });
+
             Alpine.store('router').init();
             await Alpine.store('auth').check();
 
