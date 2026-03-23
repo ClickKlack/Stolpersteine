@@ -57,11 +57,12 @@ class Auth
                     ];
                     $_SESSION['eingeloggt_am'] = time();
 
-                    // Token rotieren (altes Token ungültig machen)
+                    // Token rotieren: alten Datensatz löschen, neuen eintragen
                     $lifetime    = (int) (Config::get('app')['remember_lifetime'] ?? 2592000);
                     $neuerToken  = bin2hex(random_bytes(32));
                     $ablaufSql   = date('Y-m-d H:i:s', time() + $lifetime);
-                    $repo->setRememberToken($benutzer['id'], hash('sha256', $neuerToken), $ablaufSql);
+                    $repo->deleteRememberToken($tokenHash);
+                    $repo->addRememberToken($benutzer['id'], hash('sha256', $neuerToken), $ablaufSql);
 
                     setcookie('stolpersteine_remember', $neuerToken, [
                         'expires'  => time() + $lifetime,
@@ -168,7 +169,9 @@ class Auth
         $token    = bin2hex(random_bytes(32));
         $ablauf   = date('Y-m-d H:i:s', time() + $lifetime);
 
-        (new BenutzerRepository())->setRememberToken($benutzer['id'], hash('sha256', $token), $ablauf);
+        $repo = new BenutzerRepository();
+        $repo->cleanupExpiredTokens($benutzer['id']);
+        $repo->addRememberToken($benutzer['id'], hash('sha256', $token), $ablauf);
 
         setcookie('stolpersteine_remember', $token, [
             'expires'  => time() + $lifetime,
@@ -191,9 +194,10 @@ class Auth
     {
         self::start();
 
-        // Remember-Token aus DB löschen
-        if (isset($_SESSION['benutzer']['id'])) {
-            (new BenutzerRepository())->clearRememberToken((int) $_SESSION['benutzer']['id']);
+        // Remember-Token dieses Geräts aus DB löschen (andere Geräte bleiben eingeloggt)
+        $cookieToken = $_COOKIE['stolpersteine_remember'] ?? '';
+        if ($cookieToken !== '') {
+            (new BenutzerRepository())->deleteRememberToken(hash('sha256', $cookieToken));
         }
 
         // Remember-Cookie löschen

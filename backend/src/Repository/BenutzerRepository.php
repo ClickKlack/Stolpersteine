@@ -176,23 +176,22 @@ class BenutzerRepository
         )->execute([$passwortHash, $id]);
     }
 
-    /** Remember-Token setzen (gehasht speichern). */
-    public function setRememberToken(int $id, string $tokenHash, string $ablaufSql): void
+    /** Neuen Remember-Token für ein Gerät eintragen. */
+    public function addRememberToken(int $benutzerId, string $tokenHash, string $ablaufSql): void
     {
-        $pdo = Database::connection();
-        $pdo->prepare(
-            'UPDATE benutzer SET remember_token = ?, remember_token_ablauf = ? WHERE id = ?'
-        )->execute([$tokenHash, $ablaufSql, $id]);
+        Database::connection()->prepare(
+            'INSERT INTO remember_tokens (benutzer_id, token_hash, ablauf) VALUES (?, ?, ?)'
+        )->execute([$benutzerId, $tokenHash, $ablaufSql]);
     }
 
-    /** Benutzer anhand des gehashten Remember-Tokens suchen (nur wenn noch gültig). */
+    /** Benutzer anhand des gehashten Remember-Tokens suchen (nur gültige, aktive Benutzer). */
     public function findByRememberToken(string $tokenHash): ?array
     {
-        $pdo  = Database::connection();
-        $stmt = $pdo->prepare(
-            'SELECT id, benutzername, rolle
-             FROM benutzer
-             WHERE aktiv = 1 AND remember_token = ? AND remember_token_ablauf > NOW()
+        $stmt = Database::connection()->prepare(
+            'SELECT b.id, b.benutzername, b.rolle
+             FROM remember_tokens rt
+             JOIN benutzer b ON b.id = rt.benutzer_id
+             WHERE b.aktiv = 1 AND rt.token_hash = ? AND rt.ablauf > NOW()
              LIMIT 1'
         );
         $stmt->execute([$tokenHash]);
@@ -200,12 +199,27 @@ class BenutzerRepository
         return $row ?: null;
     }
 
-    /** Remember-Token löschen (Logout). */
-    public function clearRememberToken(int $id): void
+    /** Token dieses Geräts löschen (Logout nur dieses Gerät). */
+    public function deleteRememberToken(string $tokenHash): void
     {
-        $pdo = Database::connection();
-        $pdo->prepare(
-            'UPDATE benutzer SET remember_token = NULL, remember_token_ablauf = NULL WHERE id = ?'
-        )->execute([$id]);
+        Database::connection()->prepare(
+            'DELETE FROM remember_tokens WHERE token_hash = ?'
+        )->execute([$tokenHash]);
+    }
+
+    /** Alle Tokens eines Benutzers löschen (z.B. bei Admin-Deaktivierung). */
+    public function deleteAllRememberTokens(int $benutzerId): void
+    {
+        Database::connection()->prepare(
+            'DELETE FROM remember_tokens WHERE benutzer_id = ?'
+        )->execute([$benutzerId]);
+    }
+
+    /** Abgelaufene Tokens eines Benutzers bereinigen (bei Login aufrufen). */
+    public function cleanupExpiredTokens(int $benutzerId): void
+    {
+        Database::connection()->prepare(
+            'DELETE FROM remember_tokens WHERE benutzer_id = ? AND ablauf <= NOW()'
+        )->execute([$benutzerId]);
     }
 }
