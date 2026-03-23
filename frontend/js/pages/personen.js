@@ -32,6 +32,7 @@ document.addEventListener('alpine:init', () => {
             sterbedatum_monat:        '',
             // Weitere Felder
             biografie_kurz:           '',
+            bemerkung:                '',
             wikipedia_name:           '',
             wikidata_id_person:       '',
         },
@@ -90,7 +91,7 @@ document.addEventListener('alpine:init', () => {
                 geburtsdatum_jahr: '', geburtsdatum_monat: '',
                 sterbedatum_genauigkeit: 'tag', sterbedatum_voll: '',
                 sterbedatum_jahr: '', sterbedatum_monat: '',
-                biografie_kurz: '', wikipedia_name: '', wikidata_id_person: '',
+                biografie_kurz: '', bemerkung: '', wikipedia_name: '', wikidata_id_person: '',
                 biografie_dok_url: null, biografie_dok_titel: null,
                 status: 'validierung',
             };
@@ -120,6 +121,7 @@ document.addEventListener('alpine:init', () => {
                 sterbedatum_jahr:    ster.jahr,
                 sterbedatum_monat:   ster.monat,
                 biografie_kurz:      person.biografie_kurz      ?? '',
+                bemerkung:           person.bemerkung           ?? '',
                 wikipedia_name:      person.wikipedia_name      ?? '',
                 wikidata_id_person:  person.wikidata_id_person  ?? '',
                 biografie_dok_url:   person.biografie_dok_url   ?? null,
@@ -159,6 +161,7 @@ document.addEventListener('alpine:init', () => {
                     sterbedatum:        this._compose('sterbedatum'),
                     sterbedatum_genauigkeit:  this.form.sterbedatum_genauigkeit  || null,
                     biografie_kurz:     this.form.biografie_kurz     || null,
+                    bemerkung:          this.form.bemerkung           || null,
                     wikipedia_name:     this.form.wikipedia_name      || null,
                     wikidata_id_person: this.form.wikidata_id_person  || null,
                     status:             this.form.status || 'validierung',

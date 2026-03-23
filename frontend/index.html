@@ -736,7 +736,11 @@
                                     </fieldset>
                                     <label>
                                         Kurzbiografie
-                                        <textarea x-model="form.biografie_kurz" rows="4" :disabled="saving"></textarea>
+                                        <textarea x-model="form.biografie_kurz" rows="4" :disabled="saving" placeholder="Kurze Zusammenfassung des Lebens der Person…"></textarea>
+                                    </label>
+                                    <label>
+                                        Bemerkung
+                                        <textarea x-model="form.bemerkung" rows="3" :disabled="saving" placeholder="Bemerkungen zur Person…"></textarea>
                                     </label>
                                     <template x-if="form.biografie_dok_url">
                                         <p style="margin:0 0 0.75rem; font-size:0.875rem;">

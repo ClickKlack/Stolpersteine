@@ -48,7 +48,7 @@ class PersonRepository
         $sql = 'SELECT p.id, p.vorname, p.nachname, p.geburtsname,
                        p.geburtsdatum, p.geburtsdatum_genauigkeit,
                        p.sterbedatum, p.sterbedatum_genauigkeit,
-                       p.biografie_kurz, p.biografie_dokument_id,
+                       p.biografie_kurz, p.bemerkung, p.biografie_dokument_id,
                        dok.titel      AS biografie_dok_titel,
                        dok.quelle_url AS biografie_dok_url,
                        p.wikipedia_name, p.wikidata_id_person, p.status, p.erstellt_am, p.geaendert_am,
@@ -90,7 +90,7 @@ class PersonRepository
             'SELECT p.id, p.vorname, p.nachname, p.geburtsname,
                     p.geburtsdatum, p.geburtsdatum_genauigkeit,
                     p.sterbedatum, p.sterbedatum_genauigkeit,
-                    p.biografie_kurz, p.biografie_dokument_id,
+                    p.biografie_kurz, p.bemerkung, p.biografie_dokument_id,
                     dok.titel      AS biografie_dok_titel,
                     dok.quelle_url AS biografie_dok_url,
                     p.wikipedia_name, p.wikidata_id_person, p.status,
@@ -111,9 +111,9 @@ class PersonRepository
                 (vorname, nachname, geburtsname,
                  geburtsdatum, geburtsdatum_genauigkeit,
                  sterbedatum, sterbedatum_genauigkeit,
-                 biografie_kurz, wikipedia_name, wikidata_id_person,
+                 biografie_kurz, bemerkung, wikipedia_name, wikidata_id_person,
                  status, erstellt_von, geaendert_von)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
 
         $stmt->execute([
@@ -125,6 +125,7 @@ class PersonRepository
             $data['sterbedatum']                 ?? null,
             $data['sterbedatum_genauigkeit']     ?? null,
             $data['biografie_kurz']              ?? null,
+            $data['bemerkung']                   ?? null,
             $data['wikipedia_name']              ?? null,
             $data['wikidata_id_person']          ?? null,
             $data['status']                      ?? 'validierung',
@@ -147,6 +148,7 @@ class PersonRepository
                 sterbedatum                 = ?,
                 sterbedatum_genauigkeit     = ?,
                 biografie_kurz              = ?,
+                bemerkung                   = ?,
                 wikipedia_name              = ?,
                 wikidata_id_person          = ?,
                 status                      = ?,
@@ -163,6 +165,7 @@ class PersonRepository
             $data['sterbedatum']                 ?? null,
             $data['sterbedatum_genauigkeit']     ?? null,
             $data['biografie_kurz']              ?? null,
+            $data['bemerkung']                   ?? null,
             $data['wikipedia_name']              ?? null,
             $data['wikidata_id_person']          ?? null,
             in_array($data['status'] ?? '', ['ok', 'validierung'], true) ? $data['status'] : 'validierung',
