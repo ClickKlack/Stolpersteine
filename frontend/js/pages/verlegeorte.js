@@ -62,6 +62,10 @@ document.addEventListener('alpine:init', () => {
         // ----- Kartenvorschau (Liste) --------------------------------------
         mapPreview: { open: false, lat: null, lon: null, adresse: '' },
 
+        // ----- Verknüpfte Stolpersteine ------------------------------------
+        linkedSteine: [],
+        linkedSteineLoading: false,
+
         // ----- Löschen -----------------------------------------------------
         deleteId: null,
         deleteConfirmOpen: false,
@@ -71,6 +75,12 @@ document.addEventListener('alpine:init', () => {
         // ----- Initialisierung ---------------------------------------------
         async init() {
             await this.load();
+            const nf = Alpine.store('navFilter');
+            if (nf.page === 'verlegeorte' && nf.openEditId) {
+                const { openEditId } = nf.consume();
+                const ort = this.orte.find(o => o.id === openEditId);
+                if (ort) this.openEdit(ort);
+            }
         },
 
         // ----- Liste laden -------------------------------------------------
@@ -136,9 +146,10 @@ document.addEventListener('alpine:init', () => {
         },
 
         openEdit(ort) {
-            this.formError = null;
-            this.modalMode = 'edit';
-            this.editId    = ort.id;
+            this.formError    = null;
+            this.modalMode    = 'edit';
+            this.editId       = ort.id;
+            this.linkedSteine = [];
             this.form = {
                 adress_lokation_id:   ort.adress_lokation_id  ?? null,
                 hausnummer_aktuell:   ort.hausnummer_aktuell   ?? '',
@@ -174,6 +185,13 @@ document.addEventListener('alpine:init', () => {
             };
             this.modalOpen = true;
             this.$nextTick(() => this.initEditMap());
+
+            // Verknüpfte Stolpersteine laden
+            this.linkedSteineLoading = true;
+            api.get('/stolpersteine?verlegeort_id=' + ort.id)
+                .then(data => { this.linkedSteine = data; })
+                .catch(() => { this.linkedSteine = []; })
+                .finally(() => { this.linkedSteineLoading = false; });
         },
 
         closeModal() {

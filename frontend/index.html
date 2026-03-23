@@ -409,6 +409,7 @@
                                                     <th>Geburtsname</th>
                                                     <th>Geboren</th>
                                                     <th>Gestorben</th>
+                                                    <th>Steine</th>
                                                     <th>Status</th>
                                                     <th style="width:1%;">Aktionen</th>
                                                 </tr>
@@ -421,6 +422,15 @@
                                                         <td x-text="p.geburtsname || '–'"></td>
                                                         <td x-text="formatDate(p.geburtsdatum, p.geburtsdatum_genauigkeit)"></td>
                                                         <td x-text="formatDate(p.sterbedatum, p.sterbedatum_genauigkeit)"></td>
+                                                        <td>
+                                                            <button x-show="p.stolpersteine_anzahl > 0"
+                                                                    class="badge badge-link"
+                                                                    @click.stop="navigateTo('stolpersteine', { filter: { person_id: p.id, navHinweis: p.nachname + (p.vorname ? ', ' + p.vorname : '') } })"
+                                                                    :title="'Stolpersteine von ' + p.nachname + ' anzeigen'"
+                                                                    x-text="p.stolpersteine_anzahl">
+                                                            </button>
+                                                            <span x-show="!p.stolpersteine_anzahl" style="color:var(--pico-muted-color);">–</span>
+                                                        </td>
                                                         <td>
                                                             <span class="badge" :class="'badge-status-' + p.status"
                                                                   x-text="statusLabel(p.status)"></span>
@@ -614,6 +624,39 @@
                                         <button type="submit" :aria-busy="saving" :disabled="saving">Speichern</button>
                                     </footer>
                                 </form>
+
+                                <!-- Verknüpfte Stolpersteine (nur im Edit-Modus) -->
+                                <template x-if="modalMode === 'edit'">
+                                    <div style="margin-top:1.5rem; border-top:1px solid var(--pico-table-border-color); padding-top:1rem;">
+                                        <h6 style="margin-bottom:0.5rem;">
+                                            Verknüpfte Stolpersteine
+                                            <span x-show="linkedSteine.length > 0"
+                                                  x-text="'(' + linkedSteine.length + ')'"
+                                                  style="color:var(--pico-muted-color); font-weight:normal;"></span>
+                                        </h6>
+                                        <div x-show="linkedSteineLoading" aria-busy="true" style="height:2rem;"></div>
+                                        <template x-if="!linkedSteineLoading && linkedSteine.length === 0">
+                                            <p style="color:var(--pico-muted-color); font-size:0.875rem; margin:0;">Noch keine Stolpersteine verknüpft.</p>
+                                        </template>
+                                        <template x-if="!linkedSteineLoading && linkedSteine.length > 0">
+                                            <table style="font-size:0.875rem; margin:0;">
+                                                <tbody>
+                                                    <template x-for="stein in linkedSteine" :key="stein.id">
+                                                        <tr>
+                                                            <td x-text="[stein.strasse_aktuell, stein.hausnummer_aktuell].filter(Boolean).join(' ')"></td>
+                                                            <td><span class="badge" :class="'badge-status-' + stein.status" x-text="statusLabel(stein.status)"></span></td>
+                                                            <td style="text-align:right; white-space:nowrap;">
+                                                                <button class="btn-icon btn-outlined"
+                                                                        @click="closeModal(); navigateTo('stolpersteine', { openEditId: stein.id })"
+                                                                        title="Stolperstein bearbeiten">↗</button>
+                                                            </td>
+                                                        </tr>
+                                                    </template>
+                                                </tbody>
+                                            </table>
+                                        </template>
+                                    </div>
+                                </template>
                             </article>
                         </dialog>
 
@@ -738,6 +781,17 @@
                             </button>
                         </div>
 
+                        <!-- Navigationshinweis bei gefilterter Ansicht -->
+                        <template x-if="filter.navHinweis">
+                            <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.75rem; padding:0.5rem 0.75rem; background:var(--pico-primary-background); border-radius:var(--pico-border-radius); font-size:0.875rem;">
+                                <span>← Gefiltert: <strong x-text="filter.navHinweis"></strong></span>
+                                <button type="button" class="outline" @click="resetFilter()"
+                                        style="margin:0; padding:0.2rem 0.6rem; font-size:0.8rem;">
+                                    Filter aufheben ×
+                                </button>
+                            </div>
+                        </template>
+
                         <!-- Fehler -->
                         <template x-if="error">
                             <p style="color:var(--pico-del-color);" x-text="error"></p>
@@ -832,6 +886,9 @@
                                                 <span style="flex:1;">
                                                     <span x-text="[personDisplay.vorname, personDisplay.nachname].filter(Boolean).join(' ')"></span>
                                                 </span>
+                                                <button type="button" class="btn-icon btn-outlined"
+                                                        @click="modalOpen = false; navigateTo('personen', { openEditId: form.person_id })"
+                                                        title="Person bearbeiten" style="margin-right:0.25rem;">↗</button>
                                                 <button type="button" class="outline" style="padding:0.2rem 0.6rem; font-size:0.8rem;"
                                                         @click="personZuruecksetzen()" :disabled="saving">
                                                     Ändern
@@ -881,6 +938,9 @@
                                                     <small x-text="[verlegeortDisplay.plz, verlegeortDisplay.stadtteil].filter(Boolean).join(' ')"
                                                            style="color:var(--pico-muted-color);"></small>
                                                 </span>
+                                                <button type="button" class="btn-icon btn-outlined"
+                                                        @click="modalOpen = false; navigateTo('verlegeorte', { openEditId: form.verlegeort_id })"
+                                                        title="Verlegeort bearbeiten" style="margin-right:0.25rem;">↗</button>
                                                 <button type="button" class="outline" style="padding:0.2rem 0.6rem; font-size:0.8rem;"
                                                         @click="verlegeortZuruecksetzen()" :disabled="saving">
                                                     Ändern
@@ -1340,6 +1400,7 @@
                                                     <th>Stadt</th>
                                                     <th>Stadtteil</th>
                                                     <th>Koordinaten</th>
+                                                    <th>Steine</th>
                                                     <th>Status</th>
                                                     <th style="width:1%;">Aktionen</th>
                                                 </tr>
@@ -1382,6 +1443,15 @@
                                                             <template x-if="!ort.lat || !ort.lon">
                                                                 <span style="font-size:0.8rem; color:var(--pico-muted-color);">–</span>
                                                             </template>
+                                                        </td>
+                                                        <td>
+                                                            <button x-show="ort.stolpersteine_anzahl > 0"
+                                                                    class="badge badge-link"
+                                                                    @click.stop="navigateTo('stolpersteine', { filter: { verlegeort_id: ort.id, navHinweis: adresseAnzeige(ort) } })"
+                                                                    :title="'Stolpersteine an ' + adresseAnzeige(ort) + ' anzeigen'"
+                                                                    x-text="ort.stolpersteine_anzahl">
+                                                            </button>
+                                                            <span x-show="!ort.stolpersteine_anzahl" style="color:var(--pico-muted-color);">–</span>
                                                         </td>
                                                         <td>
                                                             <span class="badge" :class="'badge-status-' + ort.status"
@@ -1649,6 +1719,39 @@
                                         <button type="submit" :aria-busy="saving" :disabled="saving">Speichern</button>
                                     </footer>
                                 </form>
+
+                                <!-- Verknüpfte Stolpersteine (nur im Edit-Modus) -->
+                                <template x-if="modalMode === 'edit'">
+                                    <div style="margin-top:1.5rem; border-top:1px solid var(--pico-table-border-color); padding-top:1rem;">
+                                        <h6 style="margin-bottom:0.5rem;">
+                                            Verknüpfte Stolpersteine
+                                            <span x-show="linkedSteine.length > 0"
+                                                  x-text="'(' + linkedSteine.length + ')'"
+                                                  style="color:var(--pico-muted-color); font-weight:normal;"></span>
+                                        </h6>
+                                        <div x-show="linkedSteineLoading" aria-busy="true" style="height:2rem;"></div>
+                                        <template x-if="!linkedSteineLoading && linkedSteine.length === 0">
+                                            <p style="color:var(--pico-muted-color); font-size:0.875rem; margin:0;">Noch keine Stolpersteine verknüpft.</p>
+                                        </template>
+                                        <template x-if="!linkedSteineLoading && linkedSteine.length > 0">
+                                            <table style="font-size:0.875rem; margin:0;">
+                                                <tbody>
+                                                    <template x-for="stein in linkedSteine" :key="stein.id">
+                                                        <tr>
+                                                            <td x-text="[stein.vorname, stein.nachname].filter(Boolean).join(' ')"></td>
+                                                            <td><span class="badge" :class="'badge-status-' + stein.status" x-text="statusLabel(stein.status)"></span></td>
+                                                            <td style="text-align:right; white-space:nowrap;">
+                                                                <button class="btn-icon btn-outlined"
+                                                                        @click="closeModal(); navigateTo('stolpersteine', { openEditId: stein.id })"
+                                                                        title="Stolperstein bearbeiten">↗</button>
+                                                            </td>
+                                                        </tr>
+                                                    </template>
+                                                </tbody>
+                                            </table>
+                                        </template>
+                                    </div>
+                                </template>
                             </article>
                         </dialog>
 

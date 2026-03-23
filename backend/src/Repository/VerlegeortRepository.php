@@ -29,13 +29,16 @@ class VerlegeortRepository
                        p.plz   AS plz_aktuell,
                        sta.name AS stadt,           sta.wikidata_id AS wikidata_id_ort,
                        v.grid_n, v.grid_m,
-                       v.status, v.erstellt_am, v.geaendert_am
+                       v.status, v.erstellt_am, v.geaendert_am,
+                       COALESCE(sc.anzahl, 0) AS stolpersteine_anzahl
                 FROM verlegeorte v
                 LEFT JOIN adress_lokationen al ON al.id  = v.adress_lokation_id
                 LEFT JOIN strassen s            ON s.id  = al.strasse_id
                 LEFT JOIN stadtteile st         ON st.id = al.stadtteil_id
                 LEFT JOIN plz p                 ON p.id  = al.plz_id
-                LEFT JOIN staedte sta           ON sta.id = s.stadt_id';
+                LEFT JOIN staedte sta           ON sta.id = s.stadt_id
+                LEFT JOIN (SELECT verlegeort_id, COUNT(*) AS anzahl FROM stolpersteine GROUP BY verlegeort_id) sc
+                    ON sc.verlegeort_id = v.id';
 
         if (!empty($filter['stadtteil'])) {
             $where[]  = 'st.name LIKE ?';

@@ -36,6 +36,10 @@ document.addEventListener('alpine:init', () => {
             wikidata_id_person:       '',
         },
 
+        // ----- Verknüpfte Stolpersteine ------------------------------------
+        linkedSteine: [],
+        linkedSteineLoading: false,
+
         // ----- Löschen -----------------------------------------------------
         deleteId: null,
         deleteConfirmOpen: false,
@@ -45,6 +49,12 @@ document.addEventListener('alpine:init', () => {
         // ----- Initialisierung ---------------------------------------------
         async init() {
             await this.load();
+            const nf = Alpine.store('navFilter');
+            if (nf.page === 'personen' && nf.openEditId) {
+                const { openEditId } = nf.consume();
+                const person = this.personen.find(p => p.id === openEditId);
+                if (person) this.openEdit(person);
+            }
         },
 
         // ----- Liste laden -------------------------------------------------
@@ -92,6 +102,7 @@ document.addEventListener('alpine:init', () => {
             this.formError = null;
             this.modalMode = 'edit';
             this.editId    = person.id;
+            this.linkedSteine = [];
 
             const geb  = this._decompose(person.geburtsdatum, person.geburtsdatum_genauigkeit);
             const ster = this._decompose(person.sterbedatum,  person.sterbedatum_genauigkeit);
@@ -117,6 +128,13 @@ document.addEventListener('alpine:init', () => {
             };
             this.modalOpen = true;
             this.$nextTick(() => document.getElementById('p-nachname')?.focus());
+
+            // Verknüpfte Stolpersteine laden
+            this.linkedSteineLoading = true;
+            api.get('/stolpersteine?person_id=' + person.id)
+                .then(data => { this.linkedSteine = data; })
+                .catch(() => { this.linkedSteine = []; })
+                .finally(() => { this.linkedSteineLoading = false; });
         },
 
         closeModal() {

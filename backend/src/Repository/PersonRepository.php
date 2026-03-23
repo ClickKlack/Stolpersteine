@@ -51,9 +51,12 @@ class PersonRepository
                        p.biografie_kurz, p.biografie_dokument_id,
                        dok.titel      AS biografie_dok_titel,
                        dok.quelle_url AS biografie_dok_url,
-                       p.wikipedia_name, p.wikidata_id_person, p.status, p.erstellt_am, p.geaendert_am
+                       p.wikipedia_name, p.wikidata_id_person, p.status, p.erstellt_am, p.geaendert_am,
+                       COALESCE(sc.anzahl, 0) AS stolpersteine_anzahl
                 FROM personen p
-                LEFT JOIN dokumente dok ON dok.id = p.biografie_dokument_id';
+                LEFT JOIN dokumente dok ON dok.id = p.biografie_dokument_id
+                LEFT JOIN (SELECT person_id, COUNT(*) AS anzahl FROM stolpersteine GROUP BY person_id) sc
+                    ON sc.person_id = p.id';
 
         if ($where !== []) {
             $sql .= ' WHERE ' . implode(' AND ', $where);

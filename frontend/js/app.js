@@ -10,6 +10,23 @@
 // Auth-Store – eingeloggter Benutzer
 // ---------------------------------------------------------------------------
 document.addEventListener('alpine:init', () => {
+    // -----------------------------------------------------------------------
+    // navFilter-Store – seitenübergreifende Navigation mit Filter/Edit-Zielen
+    // -----------------------------------------------------------------------
+    Alpine.store('navFilter', {
+        page:       null,
+        filter:     {},
+        openEditId: null,
+
+        consume() {
+            const r = { filter: this.filter, openEditId: this.openEditId };
+            this.page       = null;
+            this.filter     = {};
+            this.openEditId = null;
+            return r;
+        },
+    });
+
     Alpine.store('auth', {
         user: null,       // { benutzername, rolle } | null
         ready: false,     // true sobald /auth/me geprüft wurde
@@ -110,6 +127,15 @@ document.addEventListener('alpine:init', () => {
     // -----------------------------------------------------------------------
     // Haupt-App-Komponente
     // -----------------------------------------------------------------------
+    // Globale Hilfsfunktion – von überall in Templates aufrufbar (kein $root nötig)
+    window.navigateTo = function(page, opts = {}) {
+        const nf    = Alpine.store('navFilter');
+        nf.page       = page;
+        nf.filter     = opts.filter     || {};
+        nf.openEditId = opts.openEditId || null;
+        Alpine.store('router').go(page);
+    };
+
     Alpine.data('app', () => ({
         get auth()   { return Alpine.store('auth'); },
         get router() { return Alpine.store('router'); },

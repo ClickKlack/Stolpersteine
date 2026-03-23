@@ -422,6 +422,24 @@ tr.tr-clickable:hover td {
 .badge-status-fehlerhaft,
 .badge-zustand-stein_fehlend { background: #fee2e2; color: #991b1b; }
 
+/* Klickbarer Anzahl-Badge (z.B. Steine-Anzahl in Listen) */
+.badge-link {
+    background: #dbeafe;
+    color: #1d4ed8;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    padding: 0.15em 0.55em;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    white-space: nowrap;
+    transition: background 0.15s;
+}
+.badge-link:hover {
+    background: #bfdbfe;
+}
+
 /* ----- Koordinaten-Button in der Liste -------------------- */
 .btn-koordinaten {
     background: none;

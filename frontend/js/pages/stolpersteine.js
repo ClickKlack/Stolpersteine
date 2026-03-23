@@ -11,7 +11,7 @@ document.addEventListener('alpine:init', () => {
         error: null,
 
         // ----- Filter ------------------------------------------------------
-        filter: { name: '', strasse: '', stadtteil: '', status: '', zustand: '', foto_status: '' },
+        filter: { name: '', strasse: '', stadtteil: '', status: '', zustand: '', foto_status: '', person_id: null, verlegeort_id: null, navHinweis: '' },
 
         // Filter-Lookups
         strasseLookup:   { query: '', ergebnisse: [], offen: false, loading: false },
@@ -73,7 +73,20 @@ document.addEventListener('alpine:init', () => {
 
         // ----- Initialisierung ---------------------------------------------
         async init() {
-            await this.load();
+            const nf = Alpine.store('navFilter');
+            if (nf.page === 'stolpersteine') {
+                const { filter, openEditId } = nf.consume();
+                if (filter.person_id)    this.filter.person_id    = filter.person_id;
+                if (filter.verlegeort_id) this.filter.verlegeort_id = filter.verlegeort_id;
+                if (filter.navHinweis)   this.filter.navHinweis   = filter.navHinweis;
+                await this.load();
+                if (openEditId) {
+                    const stein = this.steine.find(s => s.id === openEditId);
+                    if (stein) this.openEdit(stein);
+                }
+            } else {
+                await this.load();
+            }
         },
 
         // ----- Liste laden -------------------------------------------------
@@ -82,12 +95,14 @@ document.addEventListener('alpine:init', () => {
             this.error   = null;
             try {
                 const params = new URLSearchParams();
-                if (this.filter.name)        params.set('name',         this.filter.name);
-                if (this.filter.strasse)     params.set('strasse',      this.filter.strasse);
-                if (this.filter.stadtteil)   params.set('stadtteil',    this.filter.stadtteil);
-                if (this.filter.status)      params.set('status',       this.filter.status);
-                if (this.filter.zustand)     params.set('zustand',      this.filter.zustand);
-                if (this.filter.foto_status) params.set('foto_status',  this.filter.foto_status);
+                if (this.filter.name)         params.set('name',          this.filter.name);
+                if (this.filter.strasse)      params.set('strasse',       this.filter.strasse);
+                if (this.filter.stadtteil)    params.set('stadtteil',     this.filter.stadtteil);
+                if (this.filter.status)       params.set('status',        this.filter.status);
+                if (this.filter.zustand)      params.set('zustand',       this.filter.zustand);
+                if (this.filter.foto_status)  params.set('foto_status',   this.filter.foto_status);
+                if (this.filter.person_id)    params.set('person_id',     this.filter.person_id);
+                if (this.filter.verlegeort_id) params.set('verlegeort_id', this.filter.verlegeort_id);
                 const qs = params.toString() ? '?' + params.toString() : '';
                 this.steine = await api.get('/stolpersteine' + qs);
             } catch (e) {
@@ -98,7 +113,7 @@ document.addEventListener('alpine:init', () => {
         },
 
         resetFilter() {
-            this.filter          = { name: '', strasse: '', stadtteil: '', status: '', zustand: '', foto_status: '' };
+            this.filter          = { name: '', strasse: '', stadtteil: '', status: '', zustand: '', foto_status: '', person_id: null, verlegeort_id: null, navHinweis: '' };
             this.strasseLookup   = { query: '', ergebnisse: [], offen: false, loading: false };
             this.stadtteilLookup = { query: '', ergebnisse: [], offen: false, loading: false };
             this.load();
