@@ -24,13 +24,17 @@ class MailService
     ): void {
         $cfg = Config::get('mail');
 
+        if (!is_array($cfg) || empty($cfg['from'])) {
+            throw new MailerException('Mail-Konfiguration fehlt oder unvollständig (Abschnitt "mail" in config.php prüfen).');
+        }
+
         $mailer = new PHPMailer(true);
 
         try {
             $secure = strtolower($cfg['smtp_secure'] ?? '');
 
             $mailer->isSMTP();
-            $mailer->Host     = $cfg['smtp_host'];
+            $mailer->Host     = $cfg['smtp_host'] ?? 'localhost';
             $mailer->Port     = (int) ($cfg['smtp_port'] ?? 587);
             $mailer->CharSet  = 'UTF-8';
 
