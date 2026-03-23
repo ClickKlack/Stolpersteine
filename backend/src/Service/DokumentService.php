@@ -54,7 +54,7 @@ class DokumentService
         }
 
         if ($basename !== '') {
-            return $basename;
+            return rawurldecode($basename);
         }
 
         // Fallback: kurzer Hash der URL

@@ -98,7 +98,7 @@
                                 <a class="stein-karte" :href="'#stein/' + s.id">
                                     <template x-if="s.foto_pfad || s.wikimedia_commons">
                                         <img class="stein-karte-bild"
-                                             :src="s.foto_pfad ? '/api/uploads/' + s.foto_pfad : 'https://commons.wikimedia.org/wiki/Special:FilePath/' + encodeURIComponent((s.wikimedia_commons || '').replace(/ /g,'_')) + '?width=96'"
+                                             :src="s.foto_pfad ? '/api/uploads/' + s.foto_pfad : 'https://commons.wikimedia.org/wiki/Special:FilePath/' + encodeURIComponent(decodeURIComponent(s.wikimedia_commons || '').replace(/ /g,'_')) + '?width=96'"
                                              :alt="_formatName(s)"
                                              loading="lazy">
                                     </template>
@@ -210,7 +210,7 @@
                                 <!-- Wikimedia Commons -->
                                 <template x-if="stein.wikimedia_commons">
                                     <a class="detail-link"
-                                       :href="'https://commons.wikimedia.org/wiki/File:' + encodeURIComponent(stein.wikimedia_commons)"
+                                       :href="'https://commons.wikimedia.org/wiki/File:' + encodeURIComponent(decodeURIComponent(stein.wikimedia_commons))"
                                        target="_blank"
                                        rel="noopener">
                                         🖼 Wikimedia Commons

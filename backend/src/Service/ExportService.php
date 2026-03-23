@@ -607,6 +607,16 @@ class ExportService
                 ($stein['nachname'] ?? '') . ', ' . ($stein['vorname'] ?? '')
                 . (($stein['geburtsname'] ?? '') !== '' ? ' geb. ' . $stein['geburtsname'] : '')
             ),
+            '[[PERSON.NAME_VOLL_WIKIPEDIA]]' => (function() use ($stein): string {
+                $nameVoll = trim(
+                    ($stein['nachname'] ?? '') . ', ' . ($stein['vorname'] ?? '')
+                    . (($stein['geburtsname'] ?? '') !== '' ? ' geb. ' . $stein['geburtsname'] : '')
+                );
+                $wpName = $stein['person_wikipedia_name'] ?? '';
+                if ($wpName === '') return $nameVoll;
+                if ($wpName === $nameVoll) return '[[' . $nameVoll . ']]';
+                return '[[' . $wpName . '|' . $nameVoll . ']]';
+            })(),
             // OSM-spezifisch: Vorname Nachname (geb. Geburtsname)
             '[[PERSON.NAME_OSM]]'         => trim(
                 ($stein['vorname'] ?? '') . ' ' . ($stein['nachname'] ?? '')
@@ -626,6 +636,20 @@ class ExportService
                 . (($stein['hausnummer'] ?? '') !== '' ? ' ' . $stein['hausnummer'] : '')
                 . (($stein['verlegeort_beschreibung'] ?? '') !== '' ? ', ' . $stein['verlegeort_beschreibung'] : '')
             ),
+            '[[ORT.ADRESSE_WIKIPEDIA]]'    => (function() use ($stein): string {
+                $strasse   = $stein['strasse'] ?? '';
+                $wpName    = $stein['strasse_wikipedia_name'] ?? '';
+                $hausnr    = ($stein['hausnummer'] ?? '') !== '' ? ' ' . $stein['hausnummer'] : '';
+                $beschr    = ($stein['verlegeort_beschreibung'] ?? '') !== '' ? ', ' . $stein['verlegeort_beschreibung'] : '';
+                if ($wpName === '') {
+                    $strasseLink = $strasse;
+                } elseif ($wpName === $strasse) {
+                    $strasseLink = '[[' . $strasse . ']]';
+                } else {
+                    $strasseLink = '[[' . $wpName . '|' . $strasse . ']]';
+                }
+                return trim($strasseLink . $hausnr . $beschr);
+            })(),
 
             '[[STEIN.VERLEGEDATUM]]'          => $this->formatDatumKurz($stein['verlegedatum']),
             '[[STEIN.VERLEGEDATUM_ISO]]'      => $stein['verlegedatum'] ?? '',

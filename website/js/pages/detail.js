@@ -68,7 +68,7 @@ document.addEventListener('alpine:init', () => {
             if (this.stein.foto_pfad) return `/api/uploads/${this.stein.foto_pfad}`;
             if (this.stein.wikimedia_commons) {
                 // Wikimedia Commons Thumbnail-URL aufbauen
-                const name = this.stein.wikimedia_commons;
+                const name = decodeURIComponent(this.stein.wikimedia_commons);
                 const enc  = encodeURIComponent(name.replace(/ /g, '_'));
                 return `https://commons.wikimedia.org/wiki/Special:FilePath/${enc}?width=400`;
             }

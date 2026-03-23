@@ -505,6 +505,8 @@ document.addEventListener('alpine:init', () => {
             }
             // "File:" / "Datei:" entfernen
             v = v.replace(/^(File|Datei):/i, '').trim();
+            // Percent-Encoding auflösen, damit nie doppelt kodiert wird
+            try { v = decodeURIComponent(v); } catch { /* bei ungültigem Encoding unverändernt lassen */ }
             this.form.wikimedia_commons = v;
         },
 

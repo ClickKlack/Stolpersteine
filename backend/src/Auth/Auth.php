@@ -161,7 +161,22 @@ class Auth
 
         $repo->setResetToken($benutzer['id'], $token, $ablaufSql);
 
+        // Frontend-URL aus dem Referer ableiten, damit der Link in allen
+        // Deployment-Varianten (Root vs. Unterverzeichnis) korrekt landet.
+        // Sicherheitsprüfung: Referer-Origin muss in cors_origins erlaubt sein.
         $baseUrl  = rtrim(Config::get('app')['base_url'] ?? '', '/');
+        $referer  = $_SERVER['HTTP_REFERER'] ?? '';
+        if ($referer !== '') {
+            $parts     = parse_url($referer);
+            $refOrigin = ($parts['scheme'] ?? 'https') . '://' . ($parts['host'] ?? '');
+            if (!empty($parts['port'])) {
+                $refOrigin .= ':' . $parts['port'];
+            }
+            $allowedOrigins = Config::get('app')['cors_origins'] ?? [];
+            if (in_array($refOrigin, $allowedOrigins, true)) {
+                $baseUrl = $refOrigin . rtrim($parts['path'] ?? '', '/');
+            }
+        }
         $resetUrl = $baseUrl . '/#passwort-reset?token=' . $token;
 
         try {

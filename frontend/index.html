@@ -426,6 +426,12 @@
                                                                   x-text="statusLabel(p.status)"></span>
                                                         </td>
                                                         <td style="white-space:nowrap; text-align:right;">
+                                                            <button class="btn-icon" x-show="p.wikipedia_name"
+                                                                    @click.stop="window.open('https://de.wikipedia.org/wiki/' + encodeURIComponent(p.wikipedia_name), '_blank')"
+                                                                    title="Wikipedia-Seite öffnen" aria-label="Wikipedia öffnen"
+                                                                    style="color:#3366CC;">
+                                                                <span x-html="ICONS.wikipedia"></span>
+                                                            </button>
                                                             <button class="btn-icon btn-wikidata" x-show="p.wikidata_id_person"
                                                                     @click.stop="window.open('https://www.wikidata.org/wiki/' + p.wikidata_id_person, '_blank')"
                                                                     title="Wikidata-Seite öffnen" aria-label="Wikidata öffnen">
@@ -1204,7 +1210,7 @@
                                                             <code style="font-size:0.7rem; margin-left:auto;" x-text="fotoVergleich.hash_commons.slice(0,10) + '…'"></code>
                                                         </template>
                                                     </p>
-                                                    <img :src="'https://commons.wikimedia.org/wiki/Special:FilePath/' + encodeURIComponent(form.wikimedia_commons) + '?width=400'"
+                                                    <img :src="'https://commons.wikimedia.org/wiki/Special:FilePath/' + encodeURIComponent(decodeURIComponent(form.wikimedia_commons)) + '?width=400'"
                                                          :alt="'Commons: ' + form.wikimedia_commons"
                                                          style="width:100%; max-height:200px; object-fit:contain; display:block; background:var(--pico-card-background-color);">
                                                     <template x-if="fotoVergleich && fotoVergleich.commons_autor">
@@ -1217,6 +1223,20 @@
                                                             </template>
                                                             <template x-if="!fotoVergleich.commons_lizenz_url && fotoVergleich.commons_lizenz">
                                                                 <span x-text="fotoVergleich.commons_lizenz" style="margin-left:0.25rem;"></span>
+                                                            </template>
+                                                        </p>
+                                                    </template>
+                                                    <!-- Fallback: gespeicherte Lizenzdaten anzeigen wenn kein Vergleich geladen -->
+                                                    <template x-if="!fotoVergleich && form.foto_lizenz_autor && !form.foto_eigenes">
+                                                        <p style="font-size:0.7rem; color:var(--pico-muted-color); margin:0.3rem 0 0;">
+                                                            © <span x-text="form.foto_lizenz_autor"></span>
+                                                            <template x-if="form.foto_lizenz_url">
+                                                                <a :href="form.foto_lizenz_url" target="_blank" rel="noopener"
+                                                                   x-text="form.foto_lizenz_name || 'Lizenz'"
+                                                                   style="margin-left:0.25rem;"></a>
+                                                            </template>
+                                                            <template x-if="!form.foto_lizenz_url && form.foto_lizenz_name">
+                                                                <span x-text="form.foto_lizenz_name" style="margin-left:0.25rem;"></span>
                                                             </template>
                                                         </p>
                                                     </template>
@@ -1733,9 +1753,19 @@
                             <button class="outline" @click="load()"
                                     style="width:auto; margin:0; padding:0.5rem 0.8rem;">↺</button>
 
+                            <!-- Dateinamen neu ableiten -->
+                            <button class="outline secondary" @click="refreshAllDateinamen()"
+                                    :disabled="refreshingDateinamen || checkingAll || downloadingAll || !dokumente.some(d => d.quelle_url)"
+                                    style="width:auto; margin:0; padding:0.5rem 0.8rem; white-space:nowrap;"
+                                    title="Dateinamen und Titel aus URL neu ableiten (dekodiert)">
+                                <span x-show="!refreshingDateinamen">⟳ Dateinamen</span>
+                                <span x-show="refreshingDateinamen"
+                                      x-text="'⟳ ' + refreshDateinamenProgress.done + ' / ' + refreshDateinamenProgress.total"></span>
+                            </button>
+
                             <!-- Alle sichtbaren URLs prüfen -->
                             <button class="outline secondary" @click="checkAllVisible()"
-                                    :disabled="checkingAll || downloadingAll || !dokumente.some(d => d.quelle_url)"
+                                    :disabled="checkingAll || downloadingAll || refreshingDateinamen || !dokumente.some(d => d.quelle_url)"
                                     style="width:auto; margin:0; padding:0.5rem 0.8rem; white-space:nowrap;"
                                     title="Alle sichtbaren URLs auf Erreichbarkeit prüfen">
                                 <span x-show="!checkingAll">✓ Alle prüfen</span>
@@ -1745,7 +1775,7 @@
 
                             <!-- Alle sichtbaren Dokumente herunterladen -->
                             <button class="outline secondary" @click="downloadAll()"
-                                    :disabled="downloadingAll || checkingAll || !dokumente.some(d => d.quelle_url)"
+                                    :disabled="downloadingAll || checkingAll || refreshingDateinamen || !dokumente.some(d => d.quelle_url)"
                                     style="width:auto; margin:0; padding:0.5rem 0.8rem; white-space:nowrap;"
                                     title="Alle sichtbaren Dokumente herunterladen, lokal spiegeln und URL-Status aktualisieren">
                                 <span x-show="!downloadingAll">↓ Alle herunterladen</span>

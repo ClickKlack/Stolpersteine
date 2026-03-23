@@ -91,8 +91,9 @@ $router->add('DELETE', '/stolpersteine/{id}/foto',                'Stolpersteine
 $router->add('GET',    '/dokumente',              'Stolpersteine\Api\DokumenteHandler', 'index');
 $router->add('POST',   '/dokumente',              'Stolpersteine\Api\DokumenteHandler', 'create');
 $router->add('GET',    '/dokumente/url-pruefung', 'Stolpersteine\Api\DokumenteHandler', 'urlPruefung');
-$router->add('POST',   '/dokumente/url-check',    'Stolpersteine\Api\DokumenteHandler', 'urlCheck');
-$router->add('POST',   '/dokumente/url-info',     'Stolpersteine\Api\DokumenteHandler', 'urlInfo');
+$router->add('POST',   '/dokumente/url-check',         'Stolpersteine\Api\DokumenteHandler', 'urlCheck');
+$router->add('POST',   '/dokumente/url-info',          'Stolpersteine\Api\DokumenteHandler', 'urlInfo');
+$router->add('POST',   '/dokumente/refresh-dateinamen','Stolpersteine\Api\DokumenteHandler', 'refreshDateinamen');
 $router->add('GET',    '/dokumente/{id}',         'Stolpersteine\Api\DokumenteHandler', 'show');
 $router->add('PUT',    '/dokumente/{id}',         'Stolpersteine\Api\DokumenteHandler', 'update');
 $router->add('GET',    '/dokumente/{id}/spiegel',   'Stolpersteine\Api\DokumenteHandler', 'spiegelDownload');

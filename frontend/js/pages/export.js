@@ -65,7 +65,8 @@ document.addEventListener('alpine:init', () => {
             ],
             zeile: [
                 { gruppe: 'Person', items: [
-                    { key: '[[PERSON.NAME_VOLL]]',      info: 'Nachname, Vorname (geb. Geburtsname)' },
+                    { key: '[[PERSON.NAME_VOLL]]',           info: 'Nachname, Vorname (geb. Geburtsname)' },
+                    { key: '[[PERSON.NAME_VOLL_WIKIPEDIA]]', info: 'Wie NAME_VOLL, aber als Wikipedia-Link: [[Artikelname|Nachname, Vorname]]' },
                     { key: '[[PERSON.VORNAME]]',        info: 'Vorname' },
                     { key: '[[PERSON.NACHNAME]]',       info: 'Nachname' },
                     { key: '[[PERSON.GEBURTSNAME]]',    info: 'Geburtsname' },
@@ -78,6 +79,7 @@ document.addEventListener('alpine:init', () => {
                 ]},
                 { gruppe: 'Ort', items: [
                     { key: '[[ORT.ADRESSE]]',              info: 'Straße + Hausnummer + Beschreibung (kombiniert)' },
+                    { key: '[[ORT.ADRESSE_WIKIPEDIA]]',    info: 'Wie ADRESSE, aber Straßenname als Wikipedia-Link: [[Artikelname|Straße]] Hausnummer' },
                     { key: '[[ORT.STRASSE]]',              info: 'Straßenname' },
                     { key: '[[ORT.HAUSNUMMER]]',           info: 'Hausnummer (optional)' },
                     { key: '[[ORT.STRASSE_WIKIPEDIA]]',    info: 'Wikipedia-Artikel der Straße' },

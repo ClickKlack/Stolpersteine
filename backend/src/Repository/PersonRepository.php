@@ -22,10 +22,14 @@ class PersonRepository
         $where  = [];
         $params = [];
 
-        // Kombinierte Namenssuche: Vor-, Nach- und Geburtsname (OR-Verknüpfung)
+        // Kombinierte Namenssuche: Vor-, Nach- und Geburtsname (auch als Vollname)
         if (!empty($filter['name'])) {
             $term     = '%' . $filter['name'] . '%';
-            $where[]  = '(p.vorname LIKE ? OR p.nachname LIKE ? OR p.geburtsname LIKE ?)';
+            $where[]  = '(p.vorname LIKE ? OR p.nachname LIKE ? OR p.geburtsname LIKE ?'
+                      . ' OR CONCAT(p.vorname, \' \', p.nachname) LIKE ?'
+                      . ' OR CONCAT(p.nachname, \' \', p.vorname) LIKE ?)';
+            $params[] = $term;
+            $params[] = $term;
             $params[] = $term;
             $params[] = $term;
             $params[] = $term;

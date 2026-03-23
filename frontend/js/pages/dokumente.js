@@ -50,6 +50,8 @@ document.addEventListener('alpine:init', () => {
         checkAllProgress: { done: 0, total: 0 },
         downloadingAll: false,
         downloadAllProgress: { done: 0, total: 0, errors: 0 },
+        refreshingDateinamen: false,
+        refreshDateinamenProgress: { done: 0, total: 0 },
 
         // ----- Löschen -------------------------------------------------------
         deleteId: null,
@@ -325,6 +327,35 @@ document.addEventListener('alpine:init', () => {
                 Alpine.store('notify').error(e.message || 'URL-Prüfung fehlgeschlagen.');
             } finally {
                 this.checkingIds = new Set([...this.checkingIds].filter(id => id !== dok.id));
+            }
+        },
+
+        // ----- Dateinamen (und ggf. Titel) aller sichtbaren Dokumente neu ableiten
+        async refreshAllDateinamen() {
+            const candidates = this.dokumente.filter(d => d.quelle_url);
+            if (candidates.length === 0) return;
+            this.refreshingDateinamen = true;
+            this.refreshDateinamenProgress = { done: 0, total: candidates.length };
+            try {
+                for (const dok of candidates) {
+                    try {
+                        const results = await api.post('/dokumente/refresh-dateinamen', { ids: [dok.id] });
+                        const result = results[0];
+                        if (result) {
+                            const idx = this.dokumente.findIndex(d => d.id === dok.id);
+                            if (idx !== -1) {
+                                this.dokumente[idx] = { ...this.dokumente[idx], ...result };
+                            }
+                        }
+                    } catch (e) {
+                        // Einzelfehler ignorieren
+                    } finally {
+                        this.refreshDateinamenProgress.done++;
+                    }
+                }
+                Alpine.store('notify').success(`${candidates.length} Dateiname(n) aktualisiert.`);
+            } finally {
+                this.refreshingDateinamen = false;
             }
         },
 

@@ -132,9 +132,10 @@ class DokumenteHandler extends BaseHandler
             'typ'              => $body['typ']                ?? $dok['typ'],
             'dateiname'        => trim($body['dateiname']     ?? '') ?: $dok['dateiname'],
             'groesse_bytes'    => $body['groesse_bytes']      ?? null,
-            'quelle'    => trim($body['quelle'] ?? '') ?: null,
+            'quelle'           => trim($body['quelle'] ?? '') ?: null,
             'stolperstein_id'  => $body['stolperstein_id']    ?? null,
             'person_ids'       => $personIds,
+            'url_status'       => isset($body['url_status']) ? (int) $body['url_status'] : null,
         ];
 
         $this->repo->update($id, $data, $user['benutzername']);
@@ -144,6 +145,52 @@ class DokumenteHandler extends BaseHandler
         AuditRepository::log($user['benutzername'], 'UPDATE', 'dokumente', $id, $dok, $updated);
 
         Response::success($updated);
+    }
+
+    // POST /dokumente/refresh-dateinamen — Dateinamen (und ggf. Titel) aus URL neu ableiten
+    public function refreshDateinamen(array $params): void
+    {
+        $user = Auth::required();
+
+        $body = $this->jsonBody();
+        $ids  = array_map('intval', array_filter($body['ids'] ?? []));
+
+        if ($ids === []) {
+            Response::error('Keine IDs übergeben.', 422);
+        }
+
+        $results = [];
+        foreach ($ids as $id) {
+            $dok = $this->repo->findById($id);
+            if ($dok === null || empty($dok['quelle_url'])) {
+                continue;
+            }
+
+            $info        = $this->dokumentService->fetchUrlInfo($dok['quelle_url']);
+            $neuDateiname = $info['dateiname'];
+
+            // Titel nur ersetzen, wenn er noch dem alten Dateinamen entspricht
+            // (d.h. er wurde ursprünglich auto-generiert, nicht manuell gesetzt)
+            $alterTitel   = $dok['titel'] ?? '';
+            $alterDatei   = $dok['dateiname'] ?? '';
+            $neuerTitel   = ($alterTitel === $alterDatei && $alterTitel !== '') ? $neuDateiname : null;
+
+            $this->repo->updateDateiname($id, $neuDateiname, $neuerTitel);
+
+            AuditRepository::log($user['benutzername'], 'REFRESH_DATEINAME', 'dokumente', $id, null, [
+                'dateiname_alt' => $alterDatei,
+                'dateiname_neu' => $neuDateiname,
+                'titel_aktualisiert' => $neuerTitel !== null,
+            ]);
+
+            $results[] = [
+                'id'       => $id,
+                'dateiname'=> $neuDateiname,
+                'titel'    => $neuerTitel ?? $alterTitel,
+            ];
+        }
+
+        Response::success($results);
     }
 
     // POST /dokumente/url-check — bulk URL-Prüfung

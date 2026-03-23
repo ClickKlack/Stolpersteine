@@ -250,6 +250,21 @@ class DokumentRepository
         }
     }
 
+    public function updateDateiname(int $id, string $dateiname, ?string $neuerTitel): void
+    {
+        if ($neuerTitel !== null) {
+            $stmt = $this->pdo->prepare(
+                'UPDATE dokumente SET dateiname = ?, titel = ?, geaendert_am = NOW() WHERE id = ?'
+            );
+            $stmt->execute([$dateiname, $neuerTitel, $id]);
+        } else {
+            $stmt = $this->pdo->prepare(
+                'UPDATE dokumente SET dateiname = ?, geaendert_am = NOW() WHERE id = ?'
+            );
+            $stmt->execute([$dateiname, $id]);
+        }
+    }
+
     public function updateSpiegel(int $id, string $pfad, int $groesse): void
     {
         $stmt = $this->pdo->prepare(
